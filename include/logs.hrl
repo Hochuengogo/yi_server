@@ -18,5 +18,5 @@
 -define(warn(Format, Args), begin case logs:can_log(warn) of true -> logs:log(warn, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Format, Args)); _ -> ok end end).
 -define(warn(Str), begin case logs:can_log(warn) of true -> logs:log(warn, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Str, [])); _ -> ok end end).
 
--define(error(Format, Args), begin case logs:can_log(warn) of true -> logs:log(error, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Format, Args)); _ -> ok end end).
--define(error(Str), begin case logs:can_log(warn) of true -> logs:log(error, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Str, [])); _ -> ok end end).
+-define(error(Format, Args), begin case logs:can_log(error) of true -> logs:log(error, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Format, Args)); _ -> ok end end).
+-define(error(Str), begin case logs:can_log(error) of true -> logs:log(error, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Str, [])); _ -> ok end end).

@@ -61,9 +61,9 @@ sock_send(Sock, List) ->
 sock_send2(_Sock, []) ->
     ok;
 sock_send2(Sock, [Bin | List] = SendList) ->
-    case sock_send(Sock, Bin) of
+    case sock_send2(Sock, Bin) of
         ok ->
-            sock_send(Sock, List);
+            sock_send2(Sock, List);
         {error, busy} ->
             put(delay_send_list, SendList),
             Ref = erlang:send_after(10, self(), delay_send_data), %% 10ms后再尝试发送数据
@@ -73,7 +73,6 @@ sock_send2(Sock, [Bin | List] = SendList) ->
             {error, Reason}
     end;
 sock_send2(Sock, Bin) when is_port(Sock) andalso is_binary(Bin) ->
-    prim_inet:send(1, 2),
     try erlang:port_command(Sock, Bin, []) of
         false -> % Port busy and nosuspend option passed
             {error, busy};
@@ -89,7 +88,7 @@ sock_send2(_Sock, _BadData) ->
     ok.
 
 %% @doc 打包数据并通过socket发送数据
--spec sock_pack_send(port(), pos_integer(), term()) -> ok.
+-spec sock_pack_send(port(), pos_integer(), term()) -> ok | {error, term()}.
 sock_pack_send(Sock, Code, Term) when is_port(Sock) ->
     case pack(Code, res, Term) of
         {ok, Bin} ->
@@ -113,7 +112,7 @@ pack(Code, Flag, Term) ->
                     Size = byte_size(Bin),
                     case Size =< ?max_packet_size of
                         true ->
-                            NewBin = <<Code:32, Bin/binary>>,
+                            NewBin = <<Code:16, Bin/binary>>,
                             {ok, NewBin};
                         _ ->
                             ?error("协议包长度异常，长度：~w，协议号：~w，数据：~w", [Size, Code, Term]),
@@ -159,7 +158,17 @@ route(Code, Term, Gateway = #gateway{is_login = IsLogin, role_pid = RolePid}) ->
                 true ->
                     case is_pid(RolePid) of
                         true ->
-                            RolePid ! {rpc, Code, Term, RpcMod},
+                            List = [ProtoMsg | ProtoMsgList] = misc_lib:get(proto_msg_list, []) ++ [{rpc, Code, Term, RpcMod}],
+                            case misc_lib:get(read_next, true) of
+                                true ->
+                                    RolePid ! ProtoMsg,
+                                    put(proto_msg_list, ProtoMsgList),
+                                    put(proto_msg_num, length(ProtoMsgList)),
+                                    put(read_next, false);
+                                _ ->
+                                    put(proto_msg_list, List),
+                                    put(proto_msg_num, length(List))
+                            end,
                             {noreply, Gateway};
                         _ ->
                             ?error("已登录但是角色pid不存在"),

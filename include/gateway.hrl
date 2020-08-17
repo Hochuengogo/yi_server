@@ -9,6 +9,7 @@
 -author("huangzaoyi").
 
 -define(max_packet_size, 3072). %% 一个协议包最大字节数
+-define(max_proto_msg_num, 20). %% 未处理协议消息最大数量
 
 -define(max_error_times, 50). %% 最大解包出错次数
 -define(max_con_error_times, 10). %% 最大连续解包出错次数
