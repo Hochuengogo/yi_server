@@ -73,8 +73,16 @@ do_handle_info({inet_async, Sock, _Ref, {ok, <<Code:16, Bin/binary>>}}, Gateway 
         case gateway:unpack(Code, req, Bin) of
             {ok, Term} ->
                 gateway:route(Code, Term, Gateway);
-            {error, _Err} -> %% todo 记录解包出错次数
-                {noreply, Gateway}
+            {error, _Err} -> %% 记录解包出错次数
+                ErrorTimes = misc_lib:get(unpack_error_times, 0),
+                NewErrorTimes = ErrorTimes + 1,
+                case NewErrorTimes >= ?max_unpack_error_times of
+                    false ->
+                        put(unpack_error_times, NewErrorTimes),
+                        {noreply, Gateway};
+                    _ ->
+                        {stop, normal, Gateway}
+                end
         end,
     case Ret of
         {noreply, NewGateway} ->

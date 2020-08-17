@@ -179,7 +179,7 @@ route(Code, Term, Gateway = #gateway{is_login = IsLogin, role_pid = RolePid}) ->
                     {stop, normal, Gateway}
             end;
         {error, _Err} ->
-            {stop, normal, Gateway}
+            {noreply, Gateway}
     end.
 
 %% 处理网关rpc返回
