@@ -25,6 +25,6 @@
     sock                    %% socket
     ,is_login = false       %% 是否已经登录
     ,role_pid               %% 角色pid
+    ,account = <<>>         %% 账号
+    ,role_id = {0, <<>>}    %% 角色ID
 }).
-
--type gateway_ret() :: ok | {ok, #gateway{}} | {reply, term()} | {reply, term(), #gateway{}}.

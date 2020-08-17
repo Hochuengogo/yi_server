@@ -38,6 +38,7 @@ init([Sock]) ->
     ok = inet:setopts(Sock, [{packet, 2} | Opts]),
     ok = gen_tcp:controlling_process(Sock, self()),
     {ok, _} = prim_inet:async_recv(Sock, 0, -1),
+    sock_print(Sock, connect),
     put(receiving, true),
     Gateway = #gateway{sock = Sock},
     put('@socket', Sock), %% 方便获取
@@ -104,9 +105,7 @@ do_handle_info({inet_async, _Sock, _Ref, {ok, Packet}}, Gateway) ->
 
 %% socket断开连接
 do_handle_info({inet_async, Sock, _Ref, {error, closed}}, Gateway = #gateway{sock = Sock}) ->
-    {ok, {IP, Port}} = inet:peername(Sock),
-    StrIP = inet:ntoa(IP),
-    ?info("Socket断开连接, IP:~s, Port:~w", [StrIP, Port]),
+    sock_print(Sock, close),
     {stop, normal, Gateway};
 
 %% socket报错
@@ -153,9 +152,7 @@ do_handle_info({inet_reply, _Sock, ok}, Gateway) ->
 
 %% 发送数据回复失败
 do_handle_info({inet_reply, _Sock, {error, closed}}, Gateway = #gateway{sock = Sock}) ->
-    {ok, {IP, Port}} = inet:peername(Sock),
-    StrIP = inet:ntoa(IP),
-    ?info("Socket断开连接, IP:~s, Port:~w", [StrIP, Port]),
+    sock_print(Sock, close),
     {stop, normal, Gateway};
 
 %% 发送数据回复失败
@@ -185,11 +182,21 @@ do_handle_info(read_next, Gateway = #gateway{role_pid = RolePid}) ->
 
 %% socket的port挂了
 do_handle_info({'EXIT', Sock, Reason}, Gateway = #gateway{sock = Sock}) ->
-    {ok, {IP, Port}} = inet:peername(Sock),
-    StrIP = inet:ntoa(IP),
-    ?info("Socket断开连接, IP:~s, Port:~w", [StrIP, Port]),
+    sock_print(Sock, close),
     {stop, Reason, Gateway};
 
 do_handle_info(_Info, State) ->
     {noreply, State}.
 
+%% 打印信息
+sock_print(Sock, connect) ->
+    {ok, {IP, Port}} = inet:peername(Sock),
+    StrIP = inet:ntoa(IP),
+    put(ip, IP),
+    put(port, Port),
+    ?debug("Socket连接，IP：~s，Port：~w", [StrIP, Port]);
+sock_print(_Sock, close) ->
+    IP = get(ip),
+    StrIP = inet:ntoa(IP),
+    Port = get(port),
+    ?debug("Socket断开连接，IP：~s，Port：~w", [StrIP, Port]).
