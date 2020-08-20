@@ -14,6 +14,9 @@
 
 -include("logs.hrl").
 
+handle(10000, {}, Gateway) ->
+    ok;
+
 handle(Code, _Data, _Gateway) ->
     ?error("错误的rpc处理, 代码:~w", [Code]),
     {error, {bad_handle, Code}}.

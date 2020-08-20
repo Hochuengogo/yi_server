@@ -26,6 +26,6 @@ do(Code) ->
     end.
 
 do_do(100) ->
-    {ok, proto_100, test_rpc};
+    {ok, proto_100, gateway_rpc};
 do_do(_Code) ->
     {error, {bad_mapping, _Code}}.
