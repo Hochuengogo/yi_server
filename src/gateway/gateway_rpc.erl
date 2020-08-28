@@ -14,7 +14,7 @@
 
 -include("logs.hrl").
 
-handle(10000, {}, Gateway) ->
+handle(10000, {}, _Gateway) ->
     ok;
 
 handle(Code, _Data, _Gateway) ->

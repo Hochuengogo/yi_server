@@ -65,10 +65,15 @@ sock_send2(Sock, [Bin | List] = SendList) ->
         ok ->
             sock_send2(Sock, List);
         {error, busy} ->
-            put(delay_send_list, SendList),
-            Ref = erlang:send_after(10, self(), delay_send_data), %% 10ms后再尝试发送数据
-            put(delay_send_ref, Ref),
-            ok;
+            case length(SendList) >= ?max_send_proto_msg_num of %% 当发不出数据给socket，并且待发送协议数据数量达到上限
+                false ->
+                    put(delay_send_list, SendList),
+                    Ref = erlang:send_after(10, self(), delay_send_data), %% 10ms后再尝试发送数据
+                    put(delay_send_ref, Ref),
+                    ok;
+                _ ->
+                    {error, busy}
+            end;
         {error, Reason} ->
             {error, Reason}
     end;
@@ -150,9 +155,11 @@ unpack(Code, Flag, Bin) ->
 -spec route(pos_integer(), term(), #gateway{}) -> {noreply, #gateway{}} | {stop, term(), #gateway{}}.
 route(Code, Term, Gateway = #gateway{is_login = IsLogin, role_pid = RolePid}) ->
     case mapping:do(Code) of
-        {ok, _ProtoMod, gateway_rpc} ->
-            Ret = catch gateway_rpc:handle(Code, Term, Gateway),
-            handle_ret(Ret, Code, Gateway);
+        {ok, _ProtoMod, gateway_rpc} -> %% 如果是网关协议处理
+            case catch gateway_rpc:handle(Code, Term, Gateway) of
+                Ret ->
+                    handle_ret(Ret, Code, Gateway)
+            end;
         {ok, _ProtoMod, RpcMod} ->
             case IsLogin of
                 true ->
@@ -217,5 +224,5 @@ handle_ret({'EXIT', _Err}, Code, Gateway) -> %% 处理报错了
     ?error("网关rpc执行出错, 错误:~w, 代码:~w，gateway：~w", [_Err, Code, Gateway]),
     {noreply, Gateway};
 handle_ret(Ret, Code, Gateway) -> %% 返回格式错误
-    ?error("网关rpc错误返回格式，返回：~w，代码：~w，gateway：~w，stacktrace：~w", [Ret, Code, Gateway, erlang:get_stacktrace()]),
+    ?error("网关rpc错误返回格式，返回：~w，代码：~w，gateway：~w", [Ret, Code, Gateway]),
     {noreply, Gateway}.

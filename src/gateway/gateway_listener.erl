@@ -52,7 +52,7 @@ handle_info(_Info, State) ->
         {noreply, NewState} ->
             {noreply, NewState};
         _Err ->
-            ?error("处理错误, 消息:~w, State:~w, Reason:~w, Stacktrace:~w", [_Info, State, _Err, erlang:get_stacktrace()]),
+            ?error("处理错误, 消息:~w, State:~w, Reason:~w", [_Info, State, _Err]),
             {noreply, State}
     end.
 

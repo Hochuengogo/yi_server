@@ -39,9 +39,9 @@ init([Sock]) ->
     ok = gen_tcp:controlling_process(Sock, self()),
     {ok, _} = prim_inet:async_recv(Sock, 0, -1),
     sock_print(Sock, connect),
-    put(receiving, true),
+    put(receiving, true), %% 将正在接收socket数据标识设置为true
     Gateway = #gateway{sock = Sock},
-    put('@socket', Sock), %% 方便获取
+    put('@socket', Sock), %% 方便获取socket
     {ok, Gateway}.
 
 handle_call(_Request, _From, State) ->
@@ -57,11 +57,12 @@ handle_info(_Info, State) ->
         {stop, Reason, NewState} ->
             {stop, Reason, NewState};
         _Err ->
-            ?error("处理错误, 消息:~w, State:~w, Reason:~w, Stacktrace:~w", [_Info, State, _Err, erlang:get_stacktrace()]),
-            {noreply, State}
+            ?error("处理错误, 消息:~w, State:~w, Reason:~w", [_Info, State, _Err]),
+            {stop, normal, State}
     end.
 
 terminate(_Reason, #gateway{sock = Sock}) ->
+    sock_print(Sock, close),
     catch inet:close(Sock),
     ok.
 
@@ -70,6 +71,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% 接收到数据
 do_handle_info({inet_async, Sock, _Ref, {ok, <<Code:16, Bin/binary>>}}, Gateway = #gateway{sock = Sock}) ->
+    put(receiving, false), %% 将正在接收socket数据标识设置为false
     Ret =
         case gateway:unpack(Code, req, Bin) of
             {ok, Term} ->
@@ -87,13 +89,12 @@ do_handle_info({inet_async, Sock, _Ref, {ok, <<Code:16, Bin/binary>>}}, Gateway 
         end,
     case Ret of
         {noreply, NewGateway} ->
-            case misc_lib:get(proto_msg_num, 0) < ?max_proto_msg_num of
+            case misc_lib:get(proto_msg_num, 0) < ?max_recv_proto_msg_num of
                 true -> %% 小于未处理协议消息最大数量，接收socket数据
                     self() ! async_recv;
                 _ ->
                     ok
             end,
-            put(receiving, false),
             {noreply, NewGateway};
         {stop, Reason, NewGateway} ->
             {stop, Reason, NewGateway}
@@ -105,7 +106,6 @@ do_handle_info({inet_async, _Sock, _Ref, {ok, Packet}}, Gateway) ->
 
 %% socket断开连接
 do_handle_info({inet_async, Sock, _Ref, {error, closed}}, Gateway = #gateway{sock = Sock}) ->
-    sock_print(Sock, close),
     {stop, normal, Gateway};
 
 %% socket报错
@@ -151,8 +151,7 @@ do_handle_info({inet_reply, _Sock, ok}, Gateway) ->
     {noreply, Gateway};
 
 %% 发送数据回复失败
-do_handle_info({inet_reply, _Sock, {error, closed}}, Gateway = #gateway{sock = Sock}) ->
-    sock_print(Sock, close),
+do_handle_info({inet_reply, _Sock, {error, closed}}, Gateway) ->
     {stop, normal, Gateway};
 
 %% 发送数据回复失败
@@ -172,7 +171,7 @@ do_handle_info(read_next, Gateway = #gateway{role_pid = RolePid}) ->
         _ ->
             ok
     end,
-    case misc_lib:get(proto_msg_num, 0) < ?max_proto_msg_num of
+    case misc_lib:get(proto_msg_num, 0) < ?max_recv_proto_msg_num of
         true -> %% 小于未处理协议消息最大数量，接收socket数据
             get(receiving) == false andalso self() ! async_recv;
         _ ->
@@ -182,7 +181,6 @@ do_handle_info(read_next, Gateway = #gateway{role_pid = RolePid}) ->
 
 %% socket的port挂了
 do_handle_info({'EXIT', Sock, Reason}, Gateway = #gateway{sock = Sock}) ->
-    sock_print(Sock, close),
     {stop, Reason, Gateway};
 
 do_handle_info(_Info, State) ->
@@ -194,9 +192,9 @@ sock_print(Sock, connect) ->
     StrIP = inet:ntoa(IP),
     put(ip, IP),
     put(port, Port),
-    ?debug("Socket连接，IP：~s，Port：~w", [StrIP, Port]);
+    ?gate_debug("Socket连接，IP：~s，Port：~w", [StrIP, Port]);
 sock_print(_Sock, close) ->
     IP = get(ip),
     StrIP = inet:ntoa(IP),
     Port = get(port),
-    ?debug("Socket断开连接，IP：~s，Port：~w", [StrIP, Port]).
+    ?gate_debug("Socket断开连接，IP：~s，Port：~w", [StrIP, Port]).
