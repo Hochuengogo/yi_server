@@ -29,7 +29,7 @@ start_acceptor(LSock, Num) ->
     Acceptor = #{
         id => Name,
         start => {?MODULE, start_link, [LSock, Num]},
-        restart => permanent,
+        restart => transient,
         shutdown => 5000,
         type => worker,
         modules => [?MODULE]
