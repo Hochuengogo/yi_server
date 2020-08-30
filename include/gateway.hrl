@@ -13,6 +13,8 @@
 -define(max_send_proto_msg_num, 50). %% 未处理发送协议消息最大数量
 -define(max_unpack_error_times, 50). %% 最大解包出错次数
 
+-define(heartbeat_interval, 60). %% 检测心跳的时间间隔
+
 -record(gateway_listener, {
     lsock              %% 监听器socket
 }).

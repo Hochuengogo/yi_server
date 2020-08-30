@@ -17,11 +17,11 @@
 -include("manager.hrl").
 
 -define(start_normal_ids, [
-    gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
+    db, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
 ]).
 
 -define(start_center_ids, [
-    gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
+    db, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
 ]).
 
 %% @doc 启动系统
@@ -77,6 +77,12 @@ child_spec(#service{id = Id, start = Start, restart = Restart, type = Type, shut
     }.
 
 %% 获取服务配置
+get_service(db) ->
+    #service{
+        id = db,
+        start = {db_lib, start_link, []},
+        type = worker
+    };
 get_service(gateway_sup) ->
     #service{
         id = gateway_sup,
