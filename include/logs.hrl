@@ -8,7 +8,7 @@
 %%%-------------------------------------------------------------------
 -author("huangzaoyi").
 
-
+%% 运行时日志宏
 -define(debug(Format, Args), begin case logs_lib:can_log(debug) of true -> logs:log(debug, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Format, Args)); _ -> ok end end).
 -define(debug(Str), begin case logs_lib:can_log(debug) of true -> logs:log(debug, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Str, [])); _ -> ok end end).
 
@@ -20,3 +20,12 @@
 
 -define(error(Format, Args), begin case logs_lib:can_log(error) of true -> logs:log(error, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Format, Args)); _ -> ok end end).
 -define(error(Str), begin case logs_lib:can_log(error) of true -> logs:log(error, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Str, [])); _ -> ok end end).
+
+%% 网关调试日志宏
+-ifdef(gate_debug).
+-define(gate_debug(Format, Args), begin case logs_lib:can_log(debug) of true -> logs:log(debug, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Format, Args)); _ -> ok end end).
+-define(gate_debug(Str), begin case logs_lib:can_log(debug) of true -> logs:log(debug, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Str, [])); _ -> ok end end).
+-else.
+-define(gate_debug(Format, Args), ok).
+-define(gate_debug(Str), ok).
+-endif.

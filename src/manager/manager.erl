@@ -16,23 +16,44 @@
 -include("logs.hrl").
 -include("manager.hrl").
 
+%% 要启动的应用
+-define(start_apps, [
+    logs, db, yi_server
+]).
+
+%% 要启动的进程
 -define(start_normal_ids, [
-    gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
+    db, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
 ]).
 
 -define(start_center_ids, [
-    gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
+    db, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
 ]).
 
 %% @doc 启动系统
 -spec start() -> ok | {error, term()}.
 start() ->
-    application:start(yi_server).
+    start_app(?start_apps).
 
 %% @doc 关闭系统
 -spec stop() -> ok | {error, term()}.
 stop() ->
-    application:stop(yi_server).
+    stop_app(lists:reverse(?start_apps)).
+
+%% @doc 启动应用
+start_app([]) ->
+    ok;
+start_app([App | Apps]) ->
+    application:ensure_all_started(App),
+    start_app(Apps).
+
+%% @doc 关闭应用
+stop_app([]) ->
+    init:stop(),
+    ok;
+stop_app([App | Apps]) ->
+    application:stop(App),
+    stop_app(Apps).
 
 %% @doc 根据服务器类型启动服务
 start(normal) ->
@@ -77,12 +98,17 @@ child_spec(#service{id = Id, start = Start, restart = Restart, type = Type, shut
     }.
 
 %% 获取服务配置
+get_service(db) ->
+    #service{
+        id = db,
+        start = {db_lib, start_link, []},
+        type = worker
+    };
 get_service(gateway_sup) ->
     #service{
         id = gateway_sup,
         start = {gateway_sup, start_link, []},
-        type = supervisor,
-        depend_on = yiserver_sup
+        type = supervisor
     };
 get_service(gateway_acceptor_sup) ->
     #service{

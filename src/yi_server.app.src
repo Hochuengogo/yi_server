@@ -5,8 +5,7 @@
   {mod, {yi_server_app, []}},
   {applications,
    [kernel,
-    stdlib,
-    db
+    stdlib
    ]},
   {env,[]},
   {modules, []},

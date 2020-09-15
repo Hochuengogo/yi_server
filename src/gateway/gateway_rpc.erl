@@ -14,8 +14,11 @@
 
 -include("logs.hrl").
 
-handle(10000, {}, Gateway) ->
-    ok;
+%% 心跳
+handle(10000, {}, _Gateway) ->
+    Now = time_lib:now(),
+    put(heartbeat, Now),
+    {reply, {Now}};
 
 handle(Code, _Data, _Gateway) ->
     ?error("错误的rpc处理, 代码:~w", [Code]),

@@ -9,8 +9,11 @@
 -author("huangzaoyi").
 
 -define(max_packet_size, 3072). %% 一个协议包最大字节数
--define(max_proto_msg_num, 20). %% 未处理协议消息最大数量
+-define(max_recv_proto_msg_num, 20). %% 未处理接收协议消息最大数量
+-define(max_send_proto_msg_num, 50). %% 未处理发送协议消息最大数量
 -define(max_unpack_error_times, 50). %% 最大解包出错次数
+
+-define(heartbeat_interval, 60). %% 检测心跳的时间间隔
 
 -record(gateway_listener, {
     lsock              %% 监听器socket

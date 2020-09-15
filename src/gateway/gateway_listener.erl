@@ -32,7 +32,7 @@ init([]) ->
     process_flag(trap_exit, true),
     Port = config:get(gateway_port),
     Opts = config:get(gateway_options),
-    {ok, LSock} = gen_tcp:listen(Port, [{packet, 0}, Opts]),
+    {ok, LSock} = gen_tcp:listen(Port, [{packet, 0}| Opts]),
     {ok, {Ip, _}} = inet:sockname(LSock),
     ?info("网关监听 IP:~s, 端口:~w", [inet:ntoa(Ip), Port]),
 
@@ -52,7 +52,7 @@ handle_info(_Info, State) ->
         {noreply, NewState} ->
             {noreply, NewState};
         _Err ->
-            ?error("处理错误, 消息:~w, State:~w, Reason:~w, Stacktrace:~w", [_Info, State, _Err, erlang:get_stacktrace()]),
+            ?error("处理错误, 消息:~w, State:~w, Reason:~w", [_Info, State, _Err]),
             {noreply, State}
     end.
 

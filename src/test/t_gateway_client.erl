@@ -1,42 +1,32 @@
 %%%-------------------------------------------------------------------
 %%% @author huangzaoyi
 %%% @copyright (C) 2019, <COMPANY>
-%%% @doc 网关worker
+%%% @doc 测试网关客户端
 %%%
 %%% @end
 %%% Created : 27. 三月 2019 08:36
 %%%-------------------------------------------------------------------
--module(gateway_worker).
+-module(t_gateway_client).
 -author("huangzaoyi").
 
 -behaviour(gen_server).
 
 %% API
--export([start_worker/1, start_link/1]).
+-export([start/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include("common.hrl").
 -include("logs.hrl").
 -include("gateway.hrl").
 
-start_worker(CSock) ->
-    Worker = #{
-        id => ?MODULE,
-        start => {?MODULE, start_link, [CSock]},
-        restart => temporary,
-        type => worker,
-        shutdown => 10000
-    },
-    supervisor:start_child(gateway_worker_sup, [Worker]).
+start() ->
+    gen_server:start(?MODULE, [], []).
 
-start_link(CSock) ->
-    gen_server:start_link(?MODULE, [CSock], []).
-
-init([Sock]) ->
+init([]) ->
     process_flag(trap_exit, true),
+    ListenPort = config:get(gateway_port),
     Opts = config:get(gateway_options),
-    ok = inet:setopts(Sock, [{packet, 2} | Opts]),
-    ok = gen_tcp:controlling_process(Sock, self()),
+    {ok, Sock} = gen_tcp:connect("localhost", ListenPort, [{packet, 2} | Opts]),
     {ok, _} = prim_inet:async_recv(Sock, 0, -1),
     sock_print(Sock, connect),
     put(receiving, true), %% 将正在接收socket数据标识设置为true
