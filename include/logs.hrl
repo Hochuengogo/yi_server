@@ -23,8 +23,8 @@
 
 %% 网关调试日志宏
 -ifdef(gate_debug).
--define(gate_debug(Format, Args), begin case logs_lib:can_log(debug) of true -> logs:log(debug, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Format, Args)); _ -> ok end end).
--define(gate_debug(Str), begin case logs_lib:can_log(debug) of true -> logs:log(debug, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Str, [])); _ -> ok end end).
+-define(gate_debug(Format, Args), ?debug(Format, Args)).
+-define(gate_debug(Str), ?debug(Str)).
 -else.
 -define(gate_debug(Format, Args), ok).
 -define(gate_debug(Str), ok).
