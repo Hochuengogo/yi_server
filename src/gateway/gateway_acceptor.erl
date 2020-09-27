@@ -103,4 +103,29 @@ do_handle_info(_Info, State) ->
 
 %% 启动网关worker
 spawn_worker(CSock) ->
-    gateway_worker:start_worker(CSock).
+    Opts = config:get(gateway_options),
+    Fun =
+        fun({reuseaddr, _}, Acc) -> Acc;
+            ({backlog, _}, Acc) -> Acc;
+            (Opt, Acc) -> [Opt | Acc]
+        end,
+    NewOpts = lists:foldl(Fun, [], Opts),
+    case inet:setopts(CSock, [{packet, 2} | NewOpts]) of
+        ok ->
+            case gateway_worker:start_worker() of
+                {ok, Pid} ->
+                    case gen_tcp:controlling_process(CSock, Pid) of
+                        ok ->
+                            Pid ! {start_worker, CSock};
+                        _Err ->
+                            ?error("交接socket进程失败, 返回:~w", [_Err]),
+                            catch inet:close(CSock)
+                    end;
+                _Err ->
+                    ?error("启动worker进程失败，返回:~w", [_Err]),
+                    catch inet:close(CSock)
+            end;
+        _Err ->
+            ?error("设置socket参数失败, 返回:~w, 参数:~w", [_Err, [{packet, 2} | NewOpts]]),
+            catch inet:close(CSock)
+    end.

@@ -12,38 +12,23 @@
 -behaviour(gen_server).
 
 %% API
--export([start_worker/1, start_link/1]).
+-export([start_worker/0, start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include("common.hrl").
 -include("logs.hrl").
 -include("gateway.hrl").
 
-start_worker(CSock) ->
-    Worker = #{
-        id => ?MODULE,
-        start => {?MODULE, start_link, [CSock]},
-        restart => temporary,
-        type => worker,
-        shutdown => 10000
-    },
-    supervisor:start_child(gateway_worker_sup, [Worker]).
+start_worker() ->
+    supervisor:start_child(gateway_worker_sup, []).
 
-start_link(CSock) ->
-    gen_server:start_link(?MODULE, [CSock], []).
+start_link() ->
+    gen_server:start_link(?MODULE, [], []).
 
-init([Sock]) ->
+init([]) ->
     process_flag(trap_exit, true),
-    Opts = config:get(gateway_options),
-    ok = inet:setopts(Sock, [{packet, 2} | Opts]),
-    ok = gen_tcp:controlling_process(Sock, self()),
-    {ok, _} = prim_inet:async_recv(Sock, 0, -1),
-    sock_print(Sock, connect),
-    put(receiving, true), %% 将正在接收socket数据标识设置为true
-    Gateway = #gateway{sock = Sock},
-    put('@socket', Sock), %% 方便获取socket
-    erlang:send_after(?heartbeat_interval * 1000, self(), check_heartbeat),
-    {ok, Gateway}.
+    put(receiving, false),
+    {ok, #gateway{}}.
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -63,12 +48,22 @@ handle_info(_Info, State) ->
     end.
 
 terminate(_Reason, #gateway{sock = Sock}) ->
-    sock_print(Sock, close),
+    catch sock_print(Sock, close),
     catch inet:close(Sock),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+%% socket转交成功
+do_handle_info({start_worker, Sock}, Gateway) ->
+    {ok, _} = prim_inet:async_recv(Sock, 0, -1),
+    sock_print(Sock, connect),
+    put(receiving, true), %% 将正在接收socket数据标识设置为true
+    NewGateway = Gateway#gateway{sock = Sock},
+    put('@socket', Sock), %% 方便获取socket
+    erlang:send_after(?heartbeat_interval * 1000, self(), check_heartbeat),
+    {noreply, NewGateway};
 
 %% 接收到数据
 do_handle_info({inet_async, Sock, _Ref, {ok, <<Code:16, Bin/binary>>}}, Gateway = #gateway{sock = Sock}) ->
@@ -137,7 +132,7 @@ do_handle_info({send_data, Bin}, Gateway = #gateway{sock = Sock}) ->
 
 %% 延迟发送数据
 do_handle_info(delay_send_data, Gateway = #gateway{sock = Sock}) ->
-    ?debug("进入延迟发送数据处理"),
+    ?gate_debug("进入延迟发送数据处理"),
     erase(delay_send_ref),
     case gateway:sock_send(Sock, []) of
         {error, _Err} ->

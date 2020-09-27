@@ -24,4 +24,17 @@ start_link() ->
 init(_Args) ->
     ?info(?start_begin),
     ?info(?start_end),
-    {ok, {{one_for_one, 0, 1}, []}}.
+    SupFlags = #{strategy => simple_one_for_one,
+        intensity => 10,
+        period => 10},
+
+    Worker = #{
+        id => gateway_worker,
+        start =>{gateway_worker, start_link, []},
+        restart => temporary,
+        shutdown => 5000,
+        type => worker,
+        modules => [gateway_worker]
+    },
+    ChildSpecs = [Worker],
+    {ok, {SupFlags, ChildSpecs}}.

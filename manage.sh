@@ -14,7 +14,7 @@ function make() {
 
 # 启动
 function start() {
-    ${REBAR} shell
+    ulimit -S -n 10240 && ERL_FLAGS=" -args_file ./vm.args" ${REBAR} shell
 }
 
 # 生成日志等级文件

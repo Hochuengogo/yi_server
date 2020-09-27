@@ -15,19 +15,30 @@
 
 -define(heartbeat_interval, 60). %% 检测心跳的时间间隔
 
+%% 网关监听器
 -record(gateway_listener, {
     lsock              %% 监听器socket
 }).
 
+%% 网关接收器
 -record(gateway_acceptor, {
     lsock               %% 监听器socket
     ,ref                %% 引用
 }).
 
+%% 网关
 -record(gateway, {
     sock                    %% socket
     ,is_login = false       %% 是否已经登录
     ,role_pid               %% 角色pid
+    ,account = <<>>         %% 账号
+    ,role_id = {0, <<>>}    %% 角色ID
+}).
+
+%% client端
+-record(gateway_client, {
+    sock                    %% socket
+    ,is_login = false       %% 是否已经登录
     ,account = <<>>         %% 账号
     ,role_id = {0, <<>>}    %% 角色ID
 }).

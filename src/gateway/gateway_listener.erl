@@ -30,9 +30,11 @@ start_link() ->
 init([]) ->
     ?info(?start_begin),
     process_flag(trap_exit, true),
+    Host = config:get(gateway_host),
+    {ok, IP} = inet:getaddr(Host, inet),
     Port = config:get(gateway_port),
     Opts = config:get(gateway_options),
-    {ok, LSock} = gen_tcp:listen(Port, [{packet, 0}| Opts]),
+    {ok, LSock} = gen_tcp:listen(Port, [{ip, IP}, {packet, 0}| Opts]),
     {ok, {Ip, _}} = inet:sockname(LSock),
     ?info("网关监听 IP:~s, 端口:~w", [inet:ntoa(Ip), Port]),
 

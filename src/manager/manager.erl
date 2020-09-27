@@ -59,16 +59,20 @@ stop_app([App | Apps]) ->
 start(normal) ->
     case start_service(?start_normal_ids) of
         ok ->
-            ?info("启动服务器成功");
+            ?info("启动服务器成功"),
+            io:format("启动服务器成功");
         _ ->
-            ?error("启动服务器失败")
+            ?error("启动服务器失败"),
+            io:format("启动服务器失败")
     end;
 start(center) ->
     case start_service(?start_center_ids) of
         ok ->
-            ?info("启动服务器成功");
+            ?info("启动服务器成功"),
+            io:format("启动服务器成功");
         _ ->
-            ?error("启动服务器失败")
+            ?error("启动服务器失败"),
+            io:format("启动服务器失败")
     end.
 
 %% 启动服务
