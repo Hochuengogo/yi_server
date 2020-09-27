@@ -179,6 +179,10 @@ do_handle_info(read_next, Gateway = #gateway{role_pid = RolePid}) ->
 do_handle_info({'EXIT', Sock, Reason}, Gateway = #gateway{sock = Sock}) ->
     {stop, Reason, Gateway};
 
+%% 进程挂了
+do_handle_info({'EXIT', _Pid, Reason}, Gateway) ->
+    {stop, Reason, Gateway};
+
 %% 心跳检测
 do_handle_info(check_heartbeat, Gateway) ->
     case time_lib:now() > misc_lib:get(heartbeat, 0) + ?heartbeat_interval of

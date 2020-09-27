@@ -119,6 +119,7 @@ spawn_worker(CSock) ->
                             Pid ! {start_worker, CSock};
                         _Err ->
                             ?error("交接socket进程失败, 返回:~w", [_Err]),
+                            exit(Pid, normal),
                             catch inet:close(CSock)
                     end;
                 _Err ->
