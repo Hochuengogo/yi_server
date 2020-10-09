@@ -4,7 +4,7 @@
   0},
  {<<"logs">>,
   {git,"https://github.com/jiaoyinyi/erlang_logs",
-       {ref,"9d752e822b4ef219088eef99bd6430ef5f7ca38f"}},
+       {ref,"a9de8cbc55f6b45eca6d2ed19581b64b5ca7d00c"}},
   0},
  {<<"mysql">>,
   {git,"https://github.com/mysql-otp/mysql-otp",
