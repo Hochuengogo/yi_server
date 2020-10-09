@@ -47,7 +47,7 @@ start(N) ->
 stop(N) ->
     case erlang:whereis(list_to_atom(lists:concat(["client_", N]))) of
         Pid when is_pid(Pid) ->
-            exit(Pid, killed);
+            exit(Pid, normal);
         _ ->
             ok
     end.
