@@ -5,7 +5,7 @@ import sys
 
 
 # 模板文件
-tpl_file = "./tpl/logs_lib.tpl"
+tpl_file = "tpl/logs_lib.erl.tpl"
 # 输出文件
 out_file = "./src/lib/logs_lib.erl"
 # 日志等级列表

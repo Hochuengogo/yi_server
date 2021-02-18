@@ -1,51 +1,71 @@
 #!/usr/bin/env bash
 
-# 这个脚本文件要在项目的根路径中
-# 项目根路径
-ROOT=`dirname $0`
+# 获取根路径
+TARGET_FILE=`dirname $0`
+echo ${TARGET_FILE}
+TARGET_FILE=`basename ${TARGET_FILE}`
+while [ -L "${TARGET_FILE}" ]
+do
+    TARGET_FILE=`readlink ${TARGET_FILE}`
+    cd `dirname ${TARGET_FILE}`
+    TARGET_FILE=`basename ${TARGET_FILE}`
+done
+PHYS_DIR=`pwd -P`
+ROOT=${PHYS_DIR}
 
-# 配置文件
-CFG_FILE="./setting.config"
-
-# 输出函数变量
+REBAR=rebar3
+ERL=erl
 PRINT=printf
 
-# rebar变量
-REBAR=rebar3
+# 引用配置脚本
+source setting.sh
 
-# erlang变量
-ERL=erl
+# 定义字典
+declare -A cfg
+cfg[root]=${ROOT}
+cfg[mysql_file]=${ROOT}/${MYSQL_FILE}
+cfg[mysql_user]=${ROOT}/${MYSQL_USER}
+cfg[mysql_password]=${ROOT}/${MYSQL_PASSWORD}
+cfg[mysql_db]=${ROOT}/${MYSQL_DB}
+cfg[server_cfg]=${ROOT}/${SERVER_CFG}
+cfg[make_args]=${MAKE_ARGS}
+cfg[zone_path]=${ZONE_PATH}
+
+declare -A msg
 
 # 获取依赖库
+msg[get_dep]="获取依赖库"
 function get_dep() {
     ${PRINT} "开始获取依赖库\n"
-    ${REBAR} upgrade
+    cd ${cfg[root]} && $REBAR upgrade
     ${PRINT} "获取依赖库完成\n"
 }
 
 # 删除依赖库
+msg[del_dep]="删除依赖库"
 function del_dep() {
     ${PRINT} "开始删除依赖库\n"
-    if [[ -e _build ]]; then
-        rm -rf _build
+    if [[ -e ${cfg[root]}/_build ]]; then
+        rm -rf ${cfg[root]}/_build
     fi
-    if [[ -e tbin ]]; then
-        rm -rf tbin
+    if [[ -e ${cfg[root]}/tbin ]]; then
+        rm -rf ${cfg[root]}/tbin
     fi
     ${PRINT} "删除依赖库完成\n"
 }
 
 # 编译依赖，并将beam复制到tbin目录
+msg[make_dep]="编译依赖，并将beam复制到tbin目录"
 function make_dep() {
     ${PRINT} "开始编译依赖库\n"
-    lib_path="_build/default/lib"
+    lib_path=${cfg[root]}/_build/default/lib
     if [[ -d ${lib_path} ]]; then
         for lib in `find ${lib_path} -type d -maxdepth 1` ; do
             if [[ ${lib} != ${lib_path} ]]; then
-              cd ${ROOT}/${lib} && ${REBAR} compile
+              cd ${lib} && ${REBAR} compile
             fi
         done
-        cd ${ROOT}
+        cd ${cfg[root]}
         cp_dep
         ${PRINT} "编译依赖库完成\n"
     else
@@ -54,21 +74,39 @@ function make_dep() {
 }
 
 # 复制依赖库的beam、app文件
+msg[make_dep]="复制依赖库的beam、app文件"
 function cp_dep() {
     ${PRINT} "开始复制依赖库\n"
-    lib_path="_build/default/lib"
-    if [[ ! -e tbin ]]; then
-        mkdir tbin
+    lib_path=${cfg[root]}/_build/default/lib
+    if [[ ! -e ${cfg[root]}/tbin ]]; then
+        mkdir ${cfg[root]}/tbin
     fi
     for ebin in `find ${lib_path} -type d -name ebin -maxdepth 2` ; do
-        cp -a ${ROOT}/${ebin}/. tbin
+        cp -a ${ebin}/. ${cfg[root]}/tbin
     done
     ${PRINT} "复制依赖库完成\n"
 }
 
 # 安装服务器
 function install() {
-    todo
+  # 判断服务器根路径是否存在
+  echo ${cfg[zone_path]}
+  if [[ ! -e ${cfg[zone_path]} ]]; then
+      mkdir ${cfg[zone_path]}
+  fi
+  ${PRINT} "请输入服务器类型(zone|center):"
+  read server_type
+  if [[ ! (${server_type} == zone || ${server_type} == center) ]]; then
+      ${PRINT} "服务器类型只能为zone或center\n"
+      exit 1
+  fi
+  ${PRINT} "请输入服务器ID(数字):"
+  read server_id
+  expr ${server_id} + 0 1>/dev/null 2>&1
+  if [[ $? -eq 0 && ! (${server_id} -ge 0) ]]; then
+    ${PRINT} "服务器ID不能为负数\n"
+    exit 1
+  fi
 }
 
 # 卸载服务器

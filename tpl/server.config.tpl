@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% 配置 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 服务器配置
 {server_id, <<"dev_1">>}. %% 服务器ID
-{server_type, normal}. %% 服务器类型 normal | center
+{server_type, zone}. %% 服务器类型 zone | center
 
 %%%% 日志配置
 {log_level, debug}. %% 日志等级
