@@ -1,11 +1,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%% 配置 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 服务器配置
-{server_id, <<"dev_1">>}. %% 服务器ID
-{server_type, zone}. %% 服务器类型 zone | center
-
-%%%% 日志配置
-{log_level, debug}. %% 日志等级
-%%{log_root, "./log"}. %% 日志根目录
+{server_id, {server_id}}. %% 服务器ID
+{server_type, {server_type}}. %% 服务器类型 zone | center
+{platform, <<"{platform}">>}. %% 平台
+{center_node, '{platform}_center_0'}. %% 中央服节点
 
 %% 数据库配置
 {db_options,
@@ -15,18 +13,18 @@
             {max_overflow, 20} %%连接池溢出最大值
         ],
         [
-            {host, "127.0.0.1"},
-            {port, 3306},
-            {user, "root"},
-            {password, "root"},
-            {database, "db_test"}
+            {host, "{mysql_host}"},
+            {port, {mysql_port}},
+            {user, "{mysql_user}"},
+            {password, "{mysql_password}"},
+            {database, "{mysql_db}"}
         ]
     }
 }.
 
 %% 网关配置
-{gateway_host, "localhost"}. %% 网关host
-{gateway_port, 10000}. %% 网关端口
+{gateway_host, "{gateway_host}"}. %% 网关host
+{gateway_port, {gateway_port}}. %% 网关端口
 {gateway_options, [
     binary,
     {active, false},

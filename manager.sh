@@ -2,7 +2,6 @@
 
 # 获取根路径
 TARGET_FILE=`dirname $0`
-echo ${TARGET_FILE}
 TARGET_FILE=`basename ${TARGET_FILE}`
 while [ -L "${TARGET_FILE}" ]
 do
@@ -23,13 +22,16 @@ source setting.sh
 # 定义字典
 declare -A cfg
 cfg[root]=${ROOT}
-cfg[mysql_file]=${ROOT}/${MYSQL_FILE}
-cfg[mysql_user]=${ROOT}/${MYSQL_USER}
-cfg[mysql_password]=${ROOT}/${MYSQL_PASSWORD}
-cfg[mysql_db]=${ROOT}/${MYSQL_DB}
-cfg[server_cfg]=${ROOT}/${SERVER_CFG}
-cfg[make_args]=${MAKE_ARGS}
 cfg[zone_path]=${ZONE_PATH}
+cfg[platform]=${PLATFORM}
+cfg[base_port]=${BASE_PORT}
+cfg[mysql_host]=${MYSQL_HOST}
+cfg[mysql_port]=${MYSQL_PORT}
+cfg[mysql_user]=${MYSQL_USER}
+cfg[mysql_password]=${MYSQL_PASSWORD}
+cfg[gateway_host]=${GATEWAY_HOST}
+cfg[make_args]=${MAKE_ARGS}
+cfg[log_level]=${LOG_LEVEL}
 
 declare -A msg
 
@@ -65,7 +67,6 @@ function make_dep() {
               cd ${lib} && ${REBAR} compile
             fi
         done
-        cd ${cfg[root]}
         cp_dep
         ${PRINT} "编译依赖库完成\n"
     else
@@ -74,7 +75,7 @@ function make_dep() {
 }
 
 # 复制依赖库的beam、app文件
-msg[make_dep]="复制依赖库的beam、app文件"
+msg[cp_dep]="复制依赖库的beam、app文件"
 function cp_dep() {
     ${PRINT} "开始复制依赖库\n"
     lib_path=${cfg[root]}/_build/default/lib
@@ -88,25 +89,46 @@ function cp_dep() {
 }
 
 # 安装服务器
+msg[install]="安装服务器"
 function install() {
-  # 判断服务器根路径是否存在
-  echo ${cfg[zone_path]}
-  if [[ ! -e ${cfg[zone_path]} ]]; then
-      mkdir ${cfg[zone_path]}
-  fi
   ${PRINT} "请输入服务器类型(zone|center):"
   read server_type
   if [[ ! (${server_type} == zone || ${server_type} == center) ]]; then
       ${PRINT} "服务器类型只能为zone或center\n"
       exit 1
   fi
-  ${PRINT} "请输入服务器ID(数字):"
+
+  ${PRINT} "请输入服务器ID(0~10000):"
   read server_id
   expr ${server_id} + 0 1>/dev/null 2>&1
-  if [[ $? -eq 0 && ! (${server_id} -ge 0) ]]; then
-    ${PRINT} "服务器ID不能为负数\n"
+  if [[ $? -eq 0 && ! (${server_id} -ge 0 && ${server_id} -le 10000) ]]; then
+    ${PRINT} "服务器ID不在0~10000范围内\n"
     exit 1
   fi
+
+  # 判断服务器根路径是否存在
+  if [[ ! -e ${cfg[zone_path]} ]]; then
+      ${PRINT} "创建服务器根目录\n"
+      mkdir ${cfg[zone_path]}
+  fi
+
+  # 创建数据库
+  mysql_db=${cfg[platform]}_${server_type}_${server_id}
+
+  # 创建服务器数据文件夹
+  server_path=${cfg[zone_path]}/${cfg[platform]}_${server_type}_${server_id}
+  if [[ ! -e ${server_path} ]]; then
+    mkdir ${server_path}
+  else
+    ${PRINT} "已存在%s路径\n" ${server_path}
+    exit 1
+  fi
+  mkdir ${server_path}/dets
+  mkdir ${server_path}/log
+  gateway_port=$(expr ${cfg[base_port]} + ${server_id})
+  sed_str="s/{server_id}/"${server_id}"/g;s/{server_type}/"${server_type}"/g;s/{platform}/"${cfg[platform]}"/g;s/{mysql_host}/"${cfg[mysql_host]}"/g;s/{mysql_port}/"${cfg[mysql_port]}"/g;s/{mysql_user}/"${cfg[mysql_user]}"/g;s/{mysql_password}/"${cfg[mysql_password]}"/g;s/{mysql_db}/"${mysql_db}"/g;s/{gateway_host}/"${cfg[gateway_host]}"/g;s/{gateway_port}/"${gateway_port}"/g"
+  cat ${cfg[root]}/tpl/server.config.tpl | sed "${sed_str}" > ${server_path}/server.config
+  ${PRINT} "安装服务器%s完成\n" ${cfg[platform]}_${server_type}_${server_id}
 }
 
 # 卸载服务器
