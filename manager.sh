@@ -17,11 +17,13 @@ ERL=erl
 PRINT=printf
 
 # 引用配置脚本
-source setting.sh
+source ${ROOT}/setting.sh
 
 # 定义字典
 declare -A cfg
 cfg[root]=${ROOT}
+cfg[game_name]=${GAME_NAME}
+cfg[game_lang]=${GAME_LANG}
 cfg[zone_path]=${ZONE_PATH}
 cfg[platform]=${PLATFORM}
 cfg[base_port]=${BASE_PORT}
@@ -112,31 +114,90 @@ function install() {
       mkdir ${cfg[zone_path]}
   fi
 
-  # 创建数据库
-  mysql_db=${cfg[platform]}_${server_type}_${server_id}
+  mysql_db=${cfg[game_name]}_${cfg[platform]}_${server_type}_${server_id}
+  mysql_cmd="mysql -h${cfg[mysql_host]} -u${cfg[mysql_user]} -p${cfg[mysql_password]} -P ${cfg[mysql_port]}"
+  ${mysql_cmd} -e "use ${mysql_db};"
+  mysql_exist=$?
+
+  server_name=${cfg[game_name]}_${cfg[platform]}_${server_type}_${server_id}
+  server_path=${cfg[zone_path]}/${server_name}
+
+  if [ ${mysql_exist} = 0 ]; then
+      ${PRINT} "数据库%s已存在\n" ${mysql_db}
+      exit 1
+  fi
+  if [[ -e ${server_path} ]]; then
+      ${PRINT} "已存在%s路径\n" ${server_path}
+      exit 1
+  fi
+
+  ${mysql_cmd} -e "create database ${mysql_db};"
+  if [ $? = 0 ]; then
+      ${PRINT} "数据库%s创建成功\n" ${mysql_db}
+  else
+      ${PRINT} "数据库%s创建失败\n" ${mysql_db}
+      exit 1
+  fi
+  ${mysql_cmd} -D${mysql_db}<${cfg[root]}/server.sql
+  if [ $? = 0 ]; then
+      ${PRINT} "数据库%s创建表成功\n" ${mysql_db}
+  else
+      ${PRINT} "数据库%s创建表失败\n" ${mysql_db}
+      exit 1
+  fi
 
   # 创建服务器数据文件夹
-  server_path=${cfg[zone_path]}/${cfg[platform]}_${server_type}_${server_id}
-  if [[ ! -e ${server_path} ]]; then
-    mkdir ${server_path}
-  else
-    ${PRINT} "已存在%s路径\n" ${server_path}
-    exit 1
-  fi
+  mkdir ${server_path}
   mkdir ${server_path}/dets
   mkdir ${server_path}/log
   gateway_port=$(expr ${cfg[base_port]} + ${server_id})
-  sed_str="s/{server_id}/"${server_id}"/g;s/{server_type}/"${server_type}"/g;s/{platform}/"${cfg[platform]}"/g;s/{mysql_host}/"${cfg[mysql_host]}"/g;s/{mysql_port}/"${cfg[mysql_port]}"/g;s/{mysql_user}/"${cfg[mysql_user]}"/g;s/{mysql_password}/"${cfg[mysql_password]}"/g;s/{mysql_db}/"${mysql_db}"/g;s/{gateway_host}/"${cfg[gateway_host]}"/g;s/{gateway_port}/"${gateway_port}"/g"
+  open_srv_timestamp=`date '+%s'`
+  sed_str="s/{server_id}/${server_id}/g;s/{server_type}/${server_type}/g;s/{platform}/${cfg[platform]}/g;s/{mysql_host}/${cfg[mysql_host]}/g;s/{mysql_port}/${cfg[mysql_port]}/g;s/{mysql_user}/${cfg[mysql_user]}/g;s/{mysql_password}/${cfg[mysql_password]}/g;s/{mysql_db}/${mysql_db}/g;s/{gateway_host}/${cfg[gateway_host]}/g;s/{gateway_port}/${gateway_port}/g;s/{game_name}/${cfg[game_name]}/g;s/{open_srv_timestamp}/${open_srv_timestamp}/g;s/{language}/${cfg[game_lang]}/g"
   cat ${cfg[root]}/tpl/server.config.tpl | sed "${sed_str}" > ${server_path}/server.config
-  ${PRINT} "安装服务器%s完成\n" ${cfg[platform]}_${server_type}_${server_id}
+
+  ${PRINT} "安装服务器%s完成\n" ${server_name}
 }
 
 # 卸载服务器
+msg[uninstall]="卸载服务器 (uninstall server_type server_id)"
 function uninstall() {
-    todo
+    server_type=$1
+    server_id=$2
+    mysql_db=${cfg[game_name]}_${cfg[platform]}_${server_type}_${server_id}
+    mysql_cmd="mysql -h${cfg[mysql_host]} -u${cfg[mysql_user]} -p${cfg[mysql_password]} -P ${cfg[mysql_port]}"
+    ${mysql_cmd} -e "use ${mysql_db};"
+    mysql_exist=$?
+
+    server_name=${cfg[game_name]}_${cfg[platform]}_${server_type}_${server_id}
+    server_path=${cfg[zone_path]}/${server_name}
+
+    if [[ ${mysql_exist} != 0 && ! -e ${server_path} ]]; then
+        ${PRINT} "服务器%s未安装\n"
+        exit 0
+    fi
+    ${PRINT} "是否确定卸载服务器%s (yes|no):" ${server_name}
+    read check
+    if [ ${check} = yes ]; then
+        ${mysql_cmd} -e "drop database ${mysql_db};"
+        if [ $? = 0 ]; then
+            ${PRINT} "删除数据库%s完成\n" ${mysql_db}
+        else
+            ${PRINT} "删除数据库%s失败\n" ${mysql_db}
+            exit 1
+        fi
+        rm -rf ${server_path}
+        if [ $? = 0 ]; then
+            ${PRINT} "删除服务器路径%s成功\n" ${server_path}
+        else
+            ${PRINT} "删除服务器路径%s失败\n" ${server_path}
+            exit 1
+        fi
+        ${PRINT} "卸载服务器%s完成\n" ${server_name}
+    fi
 }
 
 # 编译
+msg[make]="编译"
 function make() {
     ${PRINT} "开始编译\n"
     if [[ ! -e ebin ]]; then
@@ -150,79 +211,54 @@ function make() {
 }
 
 # 编译模块
+msg[make_mod]="编译模块 (make_mod mod1 mod2 mod3)"
 function make_mod() {
     ${PRINT} "未实现编译模块功能"
 }
 
 # 编译文件
+msg[make_file]="编译文件 (make_file file1 file2 file3)"
 function make_file() {
     ${PRINT} "未实现编译文件功能"
 }
 
 # 热更
+msg[update]="热更 (update server_type server_id)"
 function update() {
     ${PRINT} "未实现热更功能"
 }
 
 # 启动服务器
+msg[start]="启动服务器 (start server_type server_id)"
 function start() {
     ulimit -S -n 10240 && ${ERL} -pa ebin -pa tbin -s manager start
 }
 
 # 关闭服务器
+msg[stop]="关闭服务器 (stop server_type server_id)"
 function stop() {
     ${PRINT} "未实现关闭服务器功能"
 }
 
-# 生成日志等级文件
-function gen_log() {
-    log_line=`grep ^\{log_level ${CFG_FILE}`
-    python gen_log.py "${log_line}"
-    if [ $? == 0 ]; then
-        echo "生成日志等级文件成功"
-    else
-        echo "生成日志等级文件失败"
-    fi
+## 生成日志等级文件
+#function gen_log() {
+#    log_line=`grep ^\{log_level ${CFG_FILE}`
+#    python gen_log.py "${log_line}"
+#    if [ $? == 0 ]; then
+#        echo "生成日志等级文件成功"
+#    else
+#        echo "生成日志等级文件失败"
+#    fi
+#}
+
+function help() {
+    ${PRINT} "帮助\n"
 }
 
-case $1 in
-  get_dep)
-    get_dep
-  ;;
-  del_dep)
-      del_dep
-    ;;
-  make_dep)
-      make_dep
-    ;;
-  cp_dep)
-      cp_dep
-    ;;
-  install)
-      install
-    ;;
-  uninstall)
-      uninstall
-    ;;
-  make)
-      make
-    ;;
-  make_mod)
-      make_mod
-    ;;
-  make_file)
-      make_file
-    ;;
-  update)
-      update
-    ;;
-  start)
-      start
-    ;;
-  stop)
-      stop
-    ;;
-  gen_log)
-      gen_log
-    ;;
-esac
+if [[ ${!msg[@]} =~ $1 ]]; then
+    cmd=$1
+    args=${@:2}
+    ${cmd} $args
+else
+  help
+fi

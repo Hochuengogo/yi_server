@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# 游戏简称
+GAME_NAME="demo"
+# 游戏语言
+GAME_LANG="chinese"
+
 # 服务器根路径
 ZONE_PATH="/Users/huangzaoyi/Documents/ProFiles/zone"
 # 平台号
