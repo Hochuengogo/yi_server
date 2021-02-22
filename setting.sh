@@ -26,7 +26,7 @@ MYSQL_PASSWORD="root"
 GATEWAY_HOST="localhost"
 
 #编译参数
-MAKE_ARGS=""
+MAKE_ARGS='[debug_info, {i, "include"}, {outdir, "ebin"}]'
 
 # 日志等级
 LOG_LEVEL="debug" # debug | info | warn | error

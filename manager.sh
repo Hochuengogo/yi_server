@@ -200,20 +200,48 @@ function uninstall() {
 msg[make]="编译"
 function make() {
     ${PRINT} "开始编译\n"
+    cd ${cfg[root]}
     if [[ ! -e ebin ]]; then
         mkdir ebin
     fi
     mods=`find src -type d | sed "s/^/'/;s/$/\/\*'\,/;$ s/.$//" | tr '\n' ' '`
-    opts="[debug_info, {i, \"include\"}, {outdir, \"ebin\"}]"
+    opts=${cfg[make_args]}
     emakefile="[{[${mods}], ${opts}}]"
     ${ERL} -noshell -eval "make:all([{emake,${emakefile}}])." -s init stop
-    ${PRINT} "编译完成\n"
+    if [ $? = 0 ]; then
+        ${PRINT} "编译完成\n"
+    else
+        ${PRINT} "编译失败\n"
+    fi
+
 }
 
 # 编译模块
 msg[make_mod]="编译模块 (make_mod mod1 mod2 mod3)"
 function make_mod() {
-    ${PRINT} "未实现编译模块功能"
+    ${PRINT} "开始编译模块\n"
+    tmp_mods=$@
+    declare -a mods
+    i=0
+    cd ${cfg[root]}
+    for tmp_mod in ${tmp_mods} ; do
+        if [ ${tmp_mod} = src ]; then
+            mods[${i}]=src
+            let i++
+        elif [[ -e src/${tmp_mod} ]]; then
+            mods[${i}]=src/${tmp_mod}
+            let i++
+        fi
+    done
+    make_mods=`echo ${mods[@]} | sed "s/^/'/;s/$/\/\*'\,/;$ s/.$//" | tr '\n' ' '`
+    opts=${cfg[make_args]}
+    emakefile="[{[${make_mods}], ${opts}}]"
+    ${ERL} -noshell -eval "make:all([{emake,${emakefile}}])." -s init stop
+    if [ $? = 0 ]; then
+        ${PRINT} "编译模块[%s]完成\n" ${tmp_mods}
+    else
+        ${PRINT} "编译模块[%s]失败\n" ${tmp_mods}
+    fi
 }
 
 # 编译文件
@@ -258,7 +286,7 @@ function help() {
 if [[ ${!msg[@]} =~ $1 ]]; then
     cmd=$1
     args=${@:2}
-    ${cmd} $args
+    ${cmd} ${args}
 else
-  help
+    help
 fi
