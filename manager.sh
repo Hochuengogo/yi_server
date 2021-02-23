@@ -204,7 +204,7 @@ function make() {
     if [[ ! -e ebin ]]; then
         mkdir ebin
     fi
-    mods=`find src -type d | sed "s/^/'/;s/$/\/\*'\,/;$ s/.$//" | tr '\n' ' '`
+    mods=`find src -type d | sed "s/^/'/g;s/$/\/\*'\,/g;$ s/.$//g" | tr '\n' ' '`
     opts=${cfg[make_args]}
     emakefile="[{[${mods}], ${opts}}]"
     ${ERL} -noshell -eval "make:all([{emake,${emakefile}}])." -s init stop
@@ -213,7 +213,6 @@ function make() {
     else
         ${PRINT} "编译失败\n"
     fi
-
 }
 
 # 编译模块
@@ -224,6 +223,9 @@ function make_mod() {
     declare -a mods
     i=0
     cd ${cfg[root]}
+    if [[ ! -e ebin ]]; then
+        mkdir ebin
+    fi
     for tmp_mod in ${tmp_mods} ; do
         if [ ${tmp_mod} = src ]; then
             mods[${i}]=src
@@ -233,21 +235,52 @@ function make_mod() {
             let i++
         fi
     done
-    make_mods=`echo ${mods[@]} | sed "s/^/'/;s/$/\/\*'\,/;$ s/.$//" | tr '\n' ' '`
+    if [ ${#mods[@]} = 0 ]; then
+        ${PRINT} "找不到[%s]模块\n" ${tmp_mods}
+        exit 1
+    fi
+    make_mods=`echo ${mods[@]} | tr ' ' '\n' | sed "s/^/'/g;s/$/\/\*'\,/g;$ s/.$//g" | tr '\n' ' '`
     opts=${cfg[make_args]}
     emakefile="[{[${make_mods}], ${opts}}]"
     ${ERL} -noshell -eval "make:all([{emake,${emakefile}}])." -s init stop
     if [ $? = 0 ]; then
-        ${PRINT} "编译模块[%s]完成\n" ${tmp_mods}
+        ${PRINT} "编译模块[%s]完成\n" ${make_mods}
     else
-        ${PRINT} "编译模块[%s]失败\n" ${tmp_mods}
+        ${PRINT} "编译模块[%s]失败\n" ${make_mods}
     fi
 }
 
 # 编译文件
 msg[make_file]="编译文件 (make_file file1 file2 file3)"
 function make_file() {
-    ${PRINT} "未实现编译文件功能"
+    ${PRINT} "开始编译文件\n"
+    tmp_files=$@
+    declare -a files
+    i=0
+    cd ${cfg[root]}
+    if [[ ! -e ebin ]]; then
+        mkdir ebin
+    fi
+    for tmp_file in ${tmp_files} ; do
+        file=`find src -type f -name ${tmp_file}.erl`
+        if [[ ${file} != "" ]]; then
+            files[${i}]=${file}
+            let i++
+        fi
+    done
+    if [ ${#files[@]} = 0 ]; then
+        ${PRINT} "找不到[%s]文件\n" ${tmp_files}
+        exit 1
+    fi
+    make_files=`echo ${files[@]} | tr ' ' '\n' | sed "s/^/'/g;s/$/'\,/g;$ s/.$//g" | tr '\n' ' '`
+    opts=${cfg[make_args]}
+    emakefile="[{[${make_files}], ${opts}}]"
+    ${ERL} -noshell -eval "make:all([{emake,${emakefile}}])." -s init stop
+    if [ $? = 0 ]; then
+        ${PRINT} "编译文件[%s]完成\n" ${make_files}
+    else
+        ${PRINT} "编译文件[%s]失败\n" ${make_files}
+    fi
 }
 
 # 热更
