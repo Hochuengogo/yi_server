@@ -24,6 +24,8 @@ declare -A cfg
 cfg[root]=${ROOT}
 cfg[game_name]=${GAME_NAME}
 cfg[game_lang]=${GAME_LANG}
+cfg[cookie]=${COOKIE}
+cfg[version]=${VERSION}
 cfg[zone_path]=${ZONE_PATH}
 cfg[platform]=${PLATFORM}
 cfg[base_port]=${BASE_PORT}
@@ -66,7 +68,8 @@ function make_dep() {
     if [[ -d ${lib_path} ]]; then
         for lib in `find ${lib_path} -type d -maxdepth 1` ; do
             if [[ ${lib} != ${lib_path} ]]; then
-              cd ${lib} && ${REBAR} compile
+                cd ${lib}
+               ${REBAR} compile
             fi
         done
         cp_dep
@@ -100,11 +103,11 @@ function install() {
       exit 1
   fi
 
-  ${PRINT} "请输入服务器ID(0~10000):"
+  ${PRINT} "请输入服务器ID(0~100):"
   read server_id
   expr ${server_id} + 0 1>/dev/null 2>&1
-  if [[ $? -eq 0 && ! (${server_id} -ge 0 && ${server_id} -le 10000) ]]; then
-    ${PRINT} "服务器ID不在0~10000范围内\n"
+  if [[ $? -eq 0 && ! (${server_id} -ge 0 && ${server_id} -le 100) ]]; then
+    ${PRINT} "服务器ID不在0~100范围内\n"
     exit 1
   fi
 
@@ -152,7 +155,8 @@ function install() {
   mkdir ${server_path}/log
   gateway_port=$(expr ${cfg[base_port]} + ${server_id})
   open_srv_timestamp=`date '+%s'`
-  sed_str="s/{server_id}/${server_id}/g;s/{server_type}/${server_type}/g;s/{platform}/${cfg[platform]}/g;s/{mysql_host}/${cfg[mysql_host]}/g;s/{mysql_port}/${cfg[mysql_port]}/g;s/{mysql_user}/${cfg[mysql_user]}/g;s/{mysql_password}/${cfg[mysql_password]}/g;s/{mysql_db}/${mysql_db}/g;s/{gateway_host}/${cfg[gateway_host]}/g;s/{gateway_port}/${gateway_port}/g;s/{game_name}/${cfg[game_name]}/g;s/{open_srv_timestamp}/${open_srv_timestamp}/g;s/{language}/${cfg[game_lang]}/g"
+  sed_str="s/{server_id}/${server_id}/g;s/{server_type}/${server_type}/g;s/{platform}/${cfg[platform]}/g;s/{mysql_host}/${cfg[mysql_host]}/g;s/{mysql_port}/${cfg[mysql_port]}/g;s/{mysql_user}/${cfg[mysql_user]}/g;s/{mysql_password}/${cfg[mysql_password]}/g;s/{mysql_db}/${mysql_db}/g;s/{gateway_host}/${cfg[gateway_host]}/g;s/{gateway_port}/${gateway_port}/g;s/{game_name}/${cfg[game_name]}/g;s/{open_srv_timestamp}/${open_srv_timestamp}/g;s/{language}/${cfg[game_lang]}/g;s/{version}/${cfg[version]}/g;s#{code_path}#${cfg[root]}#g;s/{cookie}/${cfg[cookie]}/g"
+#  echo ${sed_str}
   cat ${cfg[root]}/tpl/server.config.tpl | sed "${sed_str}" > ${server_path}/server.config
 
   ${PRINT} "安装服务器%s完成\n" ${server_name}
@@ -177,7 +181,7 @@ function uninstall() {
     fi
     ${PRINT} "是否确定卸载服务器%s (yes|no):" ${server_name}
     read check
-    if [ ${check} = yes ]; then
+    if [[ ${check} = yes ]]; then
         ${mysql_cmd} -e "drop database ${mysql_db};"
         if [ $? = 0 ]; then
             ${PRINT} "删除数据库%s完成\n" ${mysql_db}
@@ -292,7 +296,20 @@ function update() {
 # 启动服务器
 msg[start]="启动服务器 (start server_type server_id)"
 function start() {
-    ulimit -S -n 10240 && ${ERL} -pa ebin -pa tbin -s manager start
+    server_type=$1
+    server_id=$2
+    server_name=${cfg[game_name]}_${cfg[platform]}_${server_type}_${server_id}
+    server_path=${cfg[zone_path]}/${server_name}
+    node_name=${cfg[game_name]}_${cfg[platform]}_${server_type}_${server_id}@${cfg[gateway_host]}
+    min_port=$(expr ${cfg[base_port]} + 10000)
+    max_port=$(expr ${min_port} + 100)
+    if [[ -e ${server_path} && -e ${server_path}/server.config ]]; then
+        cd ${server_path}
+        ulimit -S -n 10240 && ${ERL} -pa ${cfg[root]} -pa ${cfg[root]}/tbin -pa ${cfg[root]}/ebin -name ${node_name} -setcookie ${cfg[cookie]} -hidden -smp enable +P 1024000 +e 102400 +Q 65536 -kernel inet_dist_listen_min ${min_port} inet_dist_listen_max ${max_port} -s manager start
+    else
+        ${PRINT} "服务器%s未安装" ${server_name}
+        exit 1
+    fi
 }
 
 # 关闭服务器

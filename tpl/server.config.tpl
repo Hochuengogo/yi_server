@@ -5,6 +5,10 @@
 {server_type, {server_type}}. %% 服务器类型 zone | center
 {platform, <<"{platform}">>}. %% 平台
 {language, <<"{language}">>}. %% 语言
+{version, <<"{version}">>}. %% 版本
+{code_path, "{code_path}"}. %% 代码路径
+
+{cookie, <<"{cookie}">>}. %% cookie
 {node, '{game_name}_{platform}_{server_type}_{server_id}@{gateway_host}'}. %% 本服节点
 {center_node, '{game_name}_{platform}_center_0@{gateway_host}'}. %% 中央服节点
 

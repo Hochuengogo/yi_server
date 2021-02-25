@@ -26,7 +26,7 @@
 -include("common.hrl").
 -include("logs.hrl").
 
--define(config_filepath, "./setting.config").
+-define(config_filepath, "./server.config").
 
 -record(state, {}).
 

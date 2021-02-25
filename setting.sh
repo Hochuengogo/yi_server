@@ -4,6 +4,10 @@
 GAME_NAME="demo"
 # 游戏语言
 GAME_LANG="chinese"
+# 节点cookie
+COOKIE="RWou%J7SfHSnplS@"
+# 服务器版本
+VERSION="1.0.0"
 
 # 服务器根路径
 ZONE_PATH="/Users/huangzaoyi/Documents/ProFiles/zone"

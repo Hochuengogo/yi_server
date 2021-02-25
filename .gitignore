@@ -17,5 +17,4 @@ _build
 *.iml
 rebar3.crashdump
 *~
-dets
 tbin

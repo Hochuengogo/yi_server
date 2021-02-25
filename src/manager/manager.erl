@@ -56,7 +56,7 @@ stop_app([App | Apps]) ->
     stop_app(Apps).
 
 %% @doc 根据服务器类型启动服务
-start(normal) ->
+start(zone) ->
     case start_service(?start_normal_ids) of
         ok ->
             ?info("启动服务器成功"),
