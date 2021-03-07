@@ -13,5 +13,5 @@
 -export([start_link/0]).
 
 start_link() ->
-    {SizeArgs, WorkerArgs} = config:get(db_options),
+    {SizeArgs, WorkerArgs} = srv_config:get(db_options),
     db:start_link(SizeArgs, WorkerArgs).

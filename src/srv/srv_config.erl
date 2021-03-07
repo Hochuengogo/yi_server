@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 08. 三月 2020 18:41
 %%%-------------------------------------------------------------------
--module(config).
+-module(srv_config).
 -author("huangzaoyi").
 
 -behaviour(gen_server).
@@ -33,7 +33,7 @@
 %% @doc 获取配置
 -spec get(term()) -> term() | undefined.
 get(Key) ->
-    case ets:lookup(config_val, Key) of
+    case ets:lookup(srv_config, Key) of
         [{_, Val}] ->
             Val;
         _ ->
@@ -43,7 +43,7 @@ get(Key) ->
 %% @doc 获取配置
 -spec get(term(), term()) -> term().
 get(Key, Default) ->
-    case ets:lookup(config_val, Key) of
+    case ets:lookup(srv_config, Key) of
         [{_, Val}] ->
             Val;
         _ ->
@@ -53,31 +53,25 @@ get(Key, Default) ->
 %% @doc 设置配置
 -spec set(term(), term()) -> ok.
 set(Key, Val) ->
-    ets:insert(config_val, {Key, Val}),
+    ets:insert(srv_config, {Key, Val}),
     ok.
 
 %% @doc 设置配置并保持到磁盘
 -spec save(term(), term()) -> ok.
 save(Key, Val) ->
-    ets:insert(config_val, {Key, Val}),
-    dets:insert(config_val, {Key, Val}),
+    ets:insert(srv_config, {Key, Val}),
+    dets:insert(srv_config, {Key, Val}),
     ok.
 
 %% @doc 设置锁
 -spec lock(term()) -> boolean().
 lock(Key) ->
-    case call({lock, Key}) of
-        true ->
-            true;
-        _ ->
-            false
-    end.
+    call({lock, Key}).
 
 %% @doc 解除锁
 -spec unlock(term()) -> ok.
 unlock(Key) ->
-    info({unlock, Key}),
-    ok.
+    call({unlock, Key}).
 
 call(Call) ->
     ?scall(?MODULE, Call).
@@ -95,11 +89,11 @@ init([]) ->
     ?info(?start_begin),
     process_flag(trap_exit, true),
     %% 用于保存系统配置或者全局变量
-    ets:new(config_val, [named_table, set, public, {keypos, 1}]),
-    dets:open_file(config_val, [{file, "./dets/config_val.dets"}, {type, set}, {keypos, 1}]),
-    dets:to_ets(config_val, config_val),
+    ets:new(srv_config, [named_table, set, public, {keypos, 1}]),
+    dets:open_file(srv_config, [{file, "./dets/srv_config.dets"}, {type, set}, {keypos, 1}]),
+    dets:to_ets(srv_config, srv_config),
     %% 用于处理锁
-    ets:new(config_lock, [named_table, set, {keypos, 1}]),
+    ets:new(srv_lock, [named_table, set, protected, {keypos, 1}]),
     load(),
     ?info(?start_end),
     {ok, #state{}}.
@@ -112,23 +106,19 @@ load() ->
 
 %% 加锁
 handle_call({lock, Key}, _From, State) ->
-    case ets:insert_new(config_lock, {Key, true}) of
-        true ->
-            {reply, true, State};
-        _ ->
-            {reply, false, State}
-    end;
+    Ret = ets:insert_new(srv_lock, {Key, true}),
+    {reply, Ret, State};
+
+%% 释放锁
+handle_call({unlock, Key}, _From, State) ->
+    ets:delete(srv_lock, Key),
+    {reply, true, State};
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
 handle_cast(_Request, State) ->
     {noreply, State}.
-
-%% 释放锁
-handle_info({unlock, Key}, State) ->
-    ets:delete(config_lock, Key),
-    {noreply, State};
 
 handle_info(_Info, State) ->
     {noreply, State}.

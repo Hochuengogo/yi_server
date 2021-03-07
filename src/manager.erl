@@ -22,12 +22,12 @@
 ]).
 
 %% 要启动的进程
--define(start_normal_ids, [
-    db, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
+-define(start_zone_ids, [
+    srv_code, db, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
 ]).
 
 -define(start_center_ids, [
-    db, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
+    srv_code, db, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
 ]).
 
 %% @doc 启动系统
@@ -57,7 +57,7 @@ stop_app([App | Apps]) ->
 
 %% @doc 根据服务器类型启动服务
 start(zone) ->
-    case start_service(?start_normal_ids) of
+    case start_service(?start_zone_ids) of
         ok ->
             ?info("启动服务器成功"),
             io:format("启动服务器成功");
@@ -102,6 +102,12 @@ child_spec(#service{id = Id, start = Start, restart = Restart, type = Type, shut
     }.
 
 %% 获取服务配置
+get_service(srv_code) ->
+    #service{
+        id = srv_code,
+        start = {srv_code, start_link, []},
+        type = worker
+    };
 get_service(db) ->
     #service{
         id = db,

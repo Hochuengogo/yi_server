@@ -54,9 +54,9 @@ stop(N) ->
 
 init([]) ->
     process_flag(trap_exit, true),
-    ListenHost = config:get(gateway_host),
+    ListenHost = srv_config:get(gateway_host),
     {ok, ListenIP} = inet:getaddr(ListenHost, inet),
-    ListenPort = config:get(gateway_port),
+    ListenPort = srv_config:get(gateway_port),
     {ok, Sock} = gen_tcp:connect(ListenIP, ListenPort, [{packet, 2} | ?client_opts]),
     {ok, _} = prim_inet:async_recv(Sock, 0, -1),
     sock_print(Sock, connect),

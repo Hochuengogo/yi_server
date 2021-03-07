@@ -103,7 +103,7 @@ do_handle_info(_Info, State) ->
 
 %% 启动网关worker
 spawn_worker(CSock) ->
-    Opts = config:get(gateway_options),
+    Opts = srv_config:get(gateway_options),
     Fun =
         fun({reuseaddr, _}, Acc) -> Acc;
             ({backlog, _}, Acc) -> Acc;

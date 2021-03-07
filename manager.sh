@@ -43,16 +43,16 @@ declare -A msg
 msg[get_dep]="获取依赖库"
 function get_dep() {
     ${PRINT} "开始获取依赖库\n"
-    cd ${cfg[root]} && $REBAR upgrade
+    cd ${cfg[root]}/lib && $REBAR upgrade
     ${PRINT} "获取依赖库完成\n"
 }
 
 # 删除依赖库
-msg[del_dep]="删除依赖库"
-function del_dep() {
+msg[clean_dep]="删除依赖库"
+function clean_dep() {
     ${PRINT} "开始删除依赖库\n"
-    if [[ -e ${cfg[root]}/_build ]]; then
-        rm -rf ${cfg[root]}/_build
+    if [[ -e ${cfg[root]}/lib/_build ]]; then
+        rm -rf ${cfg[root]}/lib/_build
     fi
     if [[ -e ${cfg[root]}/tbin ]]; then
         rm -rf ${cfg[root]}/tbin
@@ -64,31 +64,23 @@ function del_dep() {
 msg[make_dep]="编译依赖，并将beam复制到tbin目录"
 function make_dep() {
     ${PRINT} "开始编译依赖库\n"
-    lib_path=${cfg[root]}/_build/default/lib
-    if [[ -d ${lib_path} ]]; then
-        for lib in `find ${lib_path} -type d -maxdepth 1` ; do
-            if [[ ${lib} != ${lib_path} ]]; then
-                cd ${lib}
-               ${REBAR} compile
-            fi
-        done
-        cp_dep
-        ${PRINT} "编译依赖库完成\n"
-    else
-        ${PRINT} "不存在依赖库，请先获取依赖库\n"
-    fi
+    cd ${cfg[root]}/lib && ${REBAR} compile
+    cp_dep
+    ${PRINT} "编译依赖库完成\n"
 }
 
 # 复制依赖库的beam、app文件
 msg[cp_dep]="复制依赖库的beam、app文件"
 function cp_dep() {
     ${PRINT} "开始复制依赖库\n"
-    lib_path=${cfg[root]}/_build/default/lib
+    lib_path=${cfg[root]}/lib/_build/default/lib
     if [[ ! -e ${cfg[root]}/tbin ]]; then
         mkdir ${cfg[root]}/tbin
     fi
-    for ebin in `find ${lib_path} -type d -name ebin -maxdepth 2` ; do
-        cp -a ${ebin}/. ${cfg[root]}/tbin
+    for lib in `find ${lib_path} -type d -maxdepth 1` ; do
+        if [[ ${lib} != ${lib_path} ]]; then
+            cp -a ${lib}/ebin/. ${cfg[root]}/tbin
+        fi
     done
     ${PRINT} "复制依赖库完成\n"
 }
@@ -208,6 +200,9 @@ function make() {
     if [[ ! -e ebin ]]; then
         mkdir ebin
     fi
+    cp -a ${cfg[root]}/tbin/. ${cfg[root]}/ebin
+    cp -a ${cfg[root]}/yi_server.app ${cfg[root]}/ebin
+    gen_log_level
     mods=`find src -type d | sed "s/^/'/g;s/$/\/\*'\,/g;$ s/.$//g" | tr '\n' ' '`
     opts=${cfg[make_args]}
     emakefile="[{[${mods}], ${opts}}]"
@@ -287,6 +282,14 @@ function make_file() {
     fi
 }
 
+# 清除ebin目录
+msg[clean]="清除ebin目录"
+function clean() {
+    ${PRINT} "开始清除ebin目录\n"
+    rm -rf ${cfg[root]}/ebin/*
+    ${PRINT} "清除ebin目录完成\n"
+}
+
 # 热更
 msg[update]="热更 (update server_type server_id)"
 function update() {
@@ -305,7 +308,7 @@ function start() {
     max_port=$(expr ${min_port} + 100)
     if [[ -e ${server_path} && -e ${server_path}/server.config ]]; then
         cd ${server_path}
-        ulimit -S -n 10240 && ${ERL} -pa ${cfg[root]} -pa ${cfg[root]}/tbin -pa ${cfg[root]}/ebin -name ${node_name} -setcookie ${cfg[cookie]} -hidden -smp enable +P 1024000 +e 102400 +Q 65536 -kernel inet_dist_listen_min ${min_port} inet_dist_listen_max ${max_port} -s manager start
+        ulimit -S -n 10240 && ${ERL} -pa ${cfg[root]}/ebin -name ${node_name} -setcookie ${cfg[cookie]} -hidden -smp enable +P 1024000 +e 102400 +Q 65536 -kernel inet_dist_listen_min ${min_port} inet_dist_listen_max ${max_port} -s manager start
     else
         ${PRINT} "服务器%s未安装" ${server_name}
         exit 1
@@ -318,16 +321,17 @@ function stop() {
     ${PRINT} "未实现关闭服务器功能"
 }
 
-## 生成日志等级文件
-#function gen_log() {
-#    log_line=`grep ^\{log_level ${CFG_FILE}`
-#    python gen_log.py "${log_line}"
-#    if [ $? == 0 ]; then
-#        echo "生成日志等级文件成功"
-#    else
-#        echo "生成日志等级文件失败"
-#    fi
-#}
+# 生成日志等级
+msg[gen_log_level]="生成日志等级"
+function gen_log_level() {
+    ${PRINT} "开始生成日志等级\n"
+    cat ${cfg[root]}/tpl/logs_lib.erl.tpl | sed "s/{log_level}/${cfg[log_level]}/g" > ${cfg[root]}/src/lib/logs_lib.erl
+    if [ $? == 0 ]; then
+        ${PRINT} "生成日志等级[%s]成功\n" ${cfg[log_level]}
+    else
+        ${PRINT} "生成日志等级[%s]失败\n" ${cfg[log_level]}
+    fi
+}
 
 function help() {
     ${PRINT} "帮助\n"
