@@ -21,6 +21,6 @@ utf8_to_chars(Bin) when is_binary(Bin) ->
     unicode:characters_to_list(Bin, utf8).
 
 %% @doc 字符串转uf8编码
--spec utf8_to_chars(binary()) -> list().
+-spec chars_to_utf8(list()) -> binary().
 chars_to_utf8(Chars) when is_list(Chars) ->
     unicode:characters_to_binary(Chars, utf8).
