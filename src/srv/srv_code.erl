@@ -9,8 +9,7 @@
 -behaviour(gen_server).
 
 -export([
-    soft_load/0
-    ,hard_load/0
+    hot_update/0
 ]).
 
 -export([start_link/0, info/1, cast/1, call/1]).
@@ -27,15 +26,10 @@
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
-%% @doc 软热更
--spec soft_load() -> ok.
-soft_load() ->
-    info(soft_load).
-
-%% @doc 硬热更
--spec hard_load() -> ok.
-hard_load() ->
-    info(hard_load).
+%% @doc 热更新
+-spec hot_update() -> ok.
+hot_update() ->
+    info(hot_update).
 
 info(Info) ->
     ?SERVER ! Info.
@@ -63,16 +57,10 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Request, State) ->
     {noreply, State}.
 
-handle_info(soft_load, State) ->
-    io:format("开始软热更新服务器代码\n"),
-    do_load(soft),
-    io:format("软热更新服务器代码完成\n"),
-    {noreply, State};
-
-handle_info(hard_load, State) ->
-    io:format("开始硬热更新服务器代码\n"),
+handle_info(hot_update, State) ->
+    io:format("开始热更新服务器代码\n"),
     do_load(hard),
-    io:format("硬热更新服务器代码完成\n"),
+    io:format("热更新服务器代码完成\n"),
     {noreply, State};
 
 handle_info(_Info, State) ->
@@ -124,28 +112,24 @@ do_load([FileName | EbinFileNames], EbinPath, Flag) ->
                 _ ->
                     case code:is_loaded(Mod) of
                         {file, BeamPath} ->
-                            case purge(Mod, Flag) of
-                                true ->
-                                    case code:load_file(Mod) of
-                                        {module, Mod} ->
-                                            ets:insert(srv_code, {Mod, Md5HexString}),
-                                            io:format("热更新服务器代码[~w]成功\n", [Mod]);
-                                        {error, Reason} ->
-                                            io:format("热更新服务器[~w]失败，原因：~w\n", [Mod, Reason])
-                                    end;
-                                _ ->
-                                    io:format("热更新服务器[~w]失败，原因：~w\n", [Mod, purge_error])
+                            code:purge(Mod),
+                            case code:load_file(Mod) of
+                                {module, Mod} ->
+                                    ets:insert(srv_code, {Mod, Md5HexString}),
+                                    io:format("热更新服务器代码成功[~w]\n", [Mod]);
+                                {error, Reason} ->
+                                    io:format("热更新服务器失败[~w]，原因：~w\n", [Mod, Reason])
                             end;
                         false ->
                             case code:load_file(Mod) of
                                 {module, Mod} ->
                                     ets:insert(srv_code, {Mod, Md5HexString}),
-                                    io:format("热更新服务器代码[~w]成功\n", [Mod]);
+                                    io:format("热更新服务器代码成功[~w]\n", [Mod]);
                                 {error, Reason} ->
-                                    io:format("热更新服务器[~w]失败，原因：~w\n", [Mod, Reason])
+                                    io:format("热更新服务器失败[~w]，原因：~w\n", [Mod, Reason])
                             end;
                         _ ->
-                            io:format("热更新服务器[~w]失败，原因：~w\n", [Mod, same_mod_loaded])
+                            io:format("热更新服务器失败[~w]，原因：~w\n", [Mod, same_mod_loaded])
                     end
             end;
         _ ->
@@ -173,8 +157,3 @@ beam_md5_hex_string(BeamPath) ->
             ?error("生成beam文件md5加密错误，原因：~w", [Reason]),
             false
     end.
-
-purge(Mod, soft) ->
-    code:soft_purge(Mod);
-purge(Mod, hard) ->
-    code:purge(Mod).

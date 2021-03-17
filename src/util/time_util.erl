@@ -25,6 +25,7 @@
 ]).
 
 -include("common.hrl").
+-include("logs.hrl").
 
 %% @doc 当前erlang时间戳
 -spec now() -> erlang:timestamp().
@@ -172,18 +173,13 @@ next_week_diff({WD, T = {_H, _Min, _S}}) -> %% 距离下次周几任意时间点
 next_month_diff(zero) -> %% 距离下次1号0点秒数
     {{Y, M, D}, Time} = ?MODULE:datetime(),
     Day = calendar:last_day_of_the_month(Y, M),
-    ?day_s(Day + 1 - D) - calendar:time_to_seconds(Time);
+    ?day_s(Day) + ?day_s - (?day_s(D) + calendar:time_to_seconds(Time));
 next_month_diff(five) -> %% 距离下次1号5点秒数
     {{Y, M, D}, Time} = ?MODULE:datetime(),
     case {D, Time} >= {1, {5, 0, 0}} of
         true ->
-            Timestamp = ?MODULE:timestamp(),
-            case M == 12 of
-                true ->
-                    ?MODULE:datetime_to_timestamp({{Y + 1, 1, 1}, {5, 0, 0}}) - Timestamp;
-                _ ->
-                    ?MODULE:datetime_to_timestamp({{Y, M + 1, 1}, {5, 0, 0}}) - Timestamp
-            end;
+            Day = calendar:last_day_of_the_month(Y, M),
+            ?day_s(Day) + ?day_s - (?day_s(D) + calendar:time_to_seconds(Time)) + ?hour_s(5);
         _ ->
             ?hour_s(5) - calendar:time_to_seconds(Time)
     end;

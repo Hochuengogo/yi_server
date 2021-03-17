@@ -10,7 +10,7 @@ COOKIE="RWou%J7SfHSnplS@"
 VERSION="1.0.0"
 
 # 服务器根路径
-ZONE_PATH="/Users/huangzaoyi/Documents/ProFiles/zone"
+ZONE_PATH="/Users/huangzaoyi/Documents/ProFiles/game_server/zone"
 # 平台号
 PLATFORM="local"
 # 网关基础端口
