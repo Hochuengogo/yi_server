@@ -22,6 +22,10 @@
     , next_diff/1
     , next_week_diff/1
     , next_month_diff/1
+    , is_today/1
+    , is_same_day/2
+    , is_five/1
+    , is_same_five/2
 ]).
 
 -include("common.hrl").
@@ -50,12 +54,12 @@ date() ->
 %% @doc unix时间戳转日期时间
 -spec timestamp_to_datetime(pos_integer()) -> calendar:datetime().
 timestamp_to_datetime(TS) ->
-    calendar:universal_time_to_local_time(calendar:gregorian_seconds_to_datetime(TS + ?secs_from_0_to_1970)).
+    erlang:universaltime_to_localtime(calendar:gregorian_seconds_to_datetime(TS + ?secs_from_0_to_1970)).
 
 %% @doc unix时间戳转日期时间
 -spec datetime_to_timestamp(calendar:datetime()) -> pos_integer().
 datetime_to_timestamp(Datetime) ->
-    calendar:datetime_to_gregorian_seconds(calendar:local_time_to_universal_time(Datetime)) - ?secs_from_0_to_1970.
+    calendar:datetime_to_gregorian_seconds(erlang:localtime_to_universaltime(Datetime)) - ?secs_from_0_to_1970.
 
 %% @doc 当前时间unix时间戳
 -spec timestamp() -> pos_integer().
@@ -196,16 +200,51 @@ next_month_diff({MonthDay, T = {_H, _Min, _S}}) when is_integer(MonthDay) andals
                     _ ->
                         next_month_day_month(Y, M + 1, MonthDay)
                 end,
-            Timestamp = ?MODULE:timestamp(),
-            case Month =< M of
-                true ->
-                    ?MODULE:datetime_to_timestamp({{Y + 1, Month, MonthDay}, T}) - Timestamp;
-                _ ->
-                    ?MODULE:datetime_to_timestamp({{Y, Month, MonthDay}, T}) - Timestamp
-            end;
+            DiffMonthSec =
+                case Month =< M of
+                    true ->
+                        diff_month_sec(Y, M, Y + 1, Month, 0);
+                    _ ->
+                        diff_month_sec(Y, M, Y, Month, 0)
+                end,
+            DiffMonthSec + ?day_s(MonthDay) + calendar:time_to_seconds(T) - (?day_s(D) + calendar:time_to_seconds(Time));
         _ ->
             ?day_s(MonthDay) + calendar:time_to_seconds(T) - (?day_s(D) + calendar:time_to_seconds(Time))
     end.
+
+%% 是否与当前时间为同一天
+-spec is_today(pos_integer()) -> boolean().
+is_today(TS) ->
+    Zero = ?MODULE:timestamp(zero),
+    TS >= Zero andalso TS < Zero + ?day_s.
+
+%% 是否为相同的一天
+-spec is_same_day(pos_integer(), pos_integer()) -> boolean().
+is_same_day(TS1, TS2) when TS1 > TS2 andalso TS1 - TS2 > ?day_s ->
+    false;
+is_same_day(TS1, TS2) when TS1 < TS2 andalso TS2 - TS1 > ?day_s ->
+    false;
+is_same_day(TS1, TS2) ->
+    Zero1 = ?MODULE:timestamp({zero, TS1}),
+    TS2 >= Zero1 andalso TS2 < Zero1 + ?day_s.
+
+%% 是否与当前时间的5点为同一个5点
+-spec is_five(pos_integer()) -> boolean().
+is_five(TS) ->
+    Five = ?MODULE:timestamp(five),
+    TS >= Five andalso TS < Five + ?day_s.
+
+%% 是否为同一个五点 时间在5点或5点前，则为前一天5点时间戳；时间在5点后，则为当天5点时间戳
+-spec is_same_five(pos_integer(), pos_integer()) -> boolean().
+is_same_five(TS1, TS2) when TS1 > TS2 andalso TS1 - TS2 > ?day_s ->
+    false;
+is_same_five(TS1, TS2) when TS1 < TS2 andalso TS2 - TS1 > ?day_s ->
+    false;
+is_same_five(TS1, TS2) ->
+    Five1 = timestamp({five, TS1}),
+    TS2 >= Five1 andalso TS2 < Five1 + ?day_s.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% 下一次月几号在几月
 next_month_day_month(Y, M, MonthDay) ->
@@ -221,3 +260,20 @@ next_month_day_month(Y, M, MonthDay) ->
                     next_month_day_month(Y, M + 1, MonthDay)
             end
     end.
+
+%% 计算月份相差秒数
+diff_month_sec(StartYear, StartMonth, EndYear, EndMonth, Sec) when StartYear < EndYear ->
+    Day = calendar:last_day_of_the_month(StartYear, StartMonth),
+    NewSec = ?day_s(Day) + Sec,
+    case StartMonth == 12 of
+        true ->
+            diff_month_sec(StartYear + 1, 1, EndYear, EndMonth, NewSec);
+        _ ->
+            diff_month_sec(StartYear, StartMonth + 1, EndYear, EndMonth, NewSec)
+    end;
+diff_month_sec(StartYear, StartMonth, EndYear, EndMonth, Sec) when StartYear == EndYear andalso StartMonth < EndMonth ->
+    Day = calendar:last_day_of_the_month(StartYear, StartMonth),
+    NewSec = ?day_s(Day) + Sec,
+    diff_month_sec(StartYear, StartMonth + 1, EndYear, EndMonth, NewSec);
+diff_month_sec(_StartYear, _StartMonth, _EndYear, _EndMonth, Sec) ->
+    Sec.
