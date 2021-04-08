@@ -14,7 +14,6 @@
     md5/1
     , md5_hex_string/1
     , hex_string/1
-    , test/0
 ]).
 
 %% @doc md5加密
@@ -31,6 +30,3 @@ md5_hex_string(Data) ->
 -spec hex_string(binary()) -> list().
 hex_string(Bin) when is_binary(Bin) ->
     lists:flatten([io_lib:format("~2.16.0b", [V]) || <<V>> <= Bin]).
-
-test() ->
-    ok.

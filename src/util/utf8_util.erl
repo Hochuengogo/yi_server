@@ -13,6 +13,7 @@
 -export([
     utf8_to_chars/1
     , chars_to_utf8/1
+    , char_num/1
 ]).
 
 %% @doc utf8编码转字符串
@@ -24,3 +25,10 @@ utf8_to_chars(Bin) when is_binary(Bin) ->
 -spec chars_to_utf8(list()) -> binary().
 chars_to_utf8(Chars) when is_list(Chars) ->
     unicode:characters_to_binary(Chars, utf8).
+
+%% @doc 获取字符数量
+-spec char_num(binary() | list()) -> pos_integer().
+char_num(Bin) when is_binary(Bin) ->
+    char_num(utf8_to_chars(Bin));
+char_num(Chars) when is_list(Chars) ->
+    length(Chars).
