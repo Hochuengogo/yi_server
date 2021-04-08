@@ -26,6 +26,11 @@
     , is_same_day/2
     , is_five/1
     , is_same_five/2
+    , day_diff/2
+    , five_diff/2
+    , day_of_week/0
+    , day_of_week/1
+    , parse_time/1
 ]).
 
 -include("common.hrl").
@@ -244,8 +249,48 @@ is_same_five(TS1, TS2) ->
     Five1 = timestamp({five, TS1}),
     TS2 >= Five1 andalso TS2 < Five1 + ?day_s.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 相差天数
+-spec day_diff(pos_integer(), pos_integer()) -> pos_integer().
+day_diff(TS1, TS2) when TS1 =:= TS2 ->
+    0;
+day_diff(TS1, TS2) when TS1 < TS2 ->
+    day_diff(TS2, TS1);
+day_diff(TS1, TS2) ->
+    erlang:ceil((?MODULE:timestamp({zero, TS1}) - ?MODULE:timestamp({zero, TS2})) / ?day_s).
 
+%% 5点相差天数
+-spec five_diff(pos_integer(), pos_integer()) -> pos_integer().
+five_diff(TS1, TS2) when TS1 =:= TS2 ->
+    0;
+five_diff(TS1, TS2) when TS1 < TS2 ->
+    five_diff(TS2, TS1);
+five_diff(TS1, TS2) ->
+    erlang:ceil((?MODULE:timestamp({five, TS1}) - ?MODULE:timestamp({five, TS2})) / ?day_s).
+
+%% 星期几
+-spec day_of_week() -> calendar:daynum().
+day_of_week() ->
+    calendar:day_of_the_week(?MODULE:date()).
+-spec day_of_week(pos_integer()) -> calendar:daynum().
+day_of_week(TS) ->
+    {Date, _} = ?MODULE:timestamp_to_datetime(TS),
+    calendar:day_of_the_week(Date).
+
+%% 解析时间
+-spec parse_time(term()) -> pos_integer().
+parse_time({Y, M, D, H, Min, S}) ->
+    parse_time({{Y, M, D}, {H, Min, S}});
+parse_time(DateTime = {{_Y, _M, _D}, {_H, _Min, _S}}) ->
+    case catch srv_time:get_datetime_cache(DateTime) of
+        Timestamp when is_integer(Timestamp) ->
+            Timestamp;
+        _ ->
+            Timestamp = ?MODULE:datetime_to_timestamp(DateTime),
+            catch srv_time:set_datetime_cache(DateTime, Timestamp),
+            Timestamp
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 下一次月几号在几月
 next_month_day_month(Y, M, MonthDay) ->
     Day = calendar:last_day_of_the_month(Y, M),

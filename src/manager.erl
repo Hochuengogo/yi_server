@@ -23,11 +23,11 @@
 
 %% 要启动的进程
 -define(start_zone_ids, [
-    srv_code, db, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
+    srv_code, db, srv_time, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
 ]).
 
 -define(start_center_ids, [
-    srv_code, db, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
+    srv_code, db, srv_time, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
 ]).
 
 %% @doc 启动系统
@@ -105,14 +105,17 @@ child_spec(#service{id = Id, start = Start, restart = Restart, type = Type, shut
 get_service(srv_code) ->
     #service{
         id = srv_code,
-        start = {srv_code, start_link, []},
-        type = worker
+        start = {srv_code, start_link, []}
+    };
+get_service(srv_time) ->
+    #service{
+        id = srv_time,
+        start = {srv_time, start_link, []}
     };
 get_service(db) ->
     #service{
         id = db,
-        start = {db_lib, start_link, []},
-        type = worker
+        start = {db_lib, start_link, []}
     };
 get_service(gateway_sup) ->
     #service{

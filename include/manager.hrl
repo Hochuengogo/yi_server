@@ -7,4 +7,5 @@
     ,start      =        undefined %% 启动方法
     ,restart    =        permanent %% 重启策略 permanent | temporary | transient
     ,shutdown   =        5000      %% 关闭最长时间
+    ,desc       =        ""        %% 描述
 }).
