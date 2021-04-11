@@ -25,6 +25,8 @@
     , compress/1
     , uncompress/1
     , check_cd/2
+    , term_to_list/1
+    , list_to_term/1
 ]).
 
 %% @doc 获取进程字典值
@@ -121,3 +123,15 @@ check_cd(Key, Ms) ->
         _ ->
             false
     end.
+
+%% @doc erlang结构转字符串
+-spec term_to_list(term()) -> list().
+term_to_list(Term) ->
+    lists:flatten(io_lib:format("~w", [Term])).
+
+%% @doc 字符串转erlang结构
+-spec list_to_term(list()) -> term().
+list_to_term(String) ->
+    {ok, Tokens, _} = erl_scan:string(String ++ "."),
+    {ok, Term} = erl_parse:parse_term(Tokens),
+    Term.

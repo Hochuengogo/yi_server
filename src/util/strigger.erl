@@ -7,7 +7,7 @@
 %%% @end
 %%% Created : 09. 4月 2021 10:11 下午
 %%%-------------------------------------------------------------------
--module(trigger).
+-module(strigger).
 -author("huangzaoyi").
 
 %% API

@@ -43,7 +43,7 @@ init([]) ->
     T2 = #trigger{event = evt_test_1, callback = {?MODULE, evt_test_1_callback, [test]}},
     T3 = #trigger{event = evt_test_2, callback = {?MODULE, evt_test_2_callback, []}},
     T4 = #trigger{event = evt_test_3, callback = {?MODULE, evt_test_3_callback, []}},
-    {STrigger, _} = trigger:registers(#s_trigger{}, [T1, T2, T3, T4]),
+    {STrigger, _} = strigger:registers(#s_trigger{}, [T1, T2, T3, T4]),
     {ok, #t_trigger_state{s_trigger = STrigger}}.
 
 handle_call(_Request, _From, State = #t_trigger_state{}) ->
@@ -55,7 +55,7 @@ handle_cast(_Request, State = #t_trigger_state{}) ->
 handle_info({fire_trigger, EventTuple}, State = #t_trigger_state{s_trigger = STrigger}) ->
     ?debug("test1"),
     erlang:statistics(wall_clock),
-    case catch trigger:fire(STrigger, State, EventTuple) of
+    case catch strigger:fire(STrigger, State, EventTuple) of
         {NewSTrigger = #s_trigger{}, NewState} ->
             {_, Time} = erlang:statistics(wall_clock),
             ?debug("执行触发事件完成，~wms", [Time]),
@@ -80,7 +80,7 @@ code_change(_OldVsn, State = #t_trigger_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 evt_test_1_callback(STrigger, State, EventTuple) ->
-    {NewSTrigger, NewState} = trigger:fire(STrigger, State, #evt_test_3{}),
+    {NewSTrigger, NewState} = strigger:fire(STrigger, State, #evt_test_3{}),
     {remove, {evt_test_2, 3}, NewSTrigger, NewState}.
 
 evt_test_1_callback(STrigger, State, EventTuple, Flag) ->
