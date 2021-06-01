@@ -59,7 +59,7 @@ handle_cast(_Request, State) ->
 
 handle_info(hot_update, State) ->
     io:format("开始热更新服务器代码\n"),
-    do_load(hard),
+    do_load(),
     io:format("热更新服务器代码完成\n"),
     {noreply, State};
 
@@ -94,15 +94,15 @@ init_srv_code([FileName | EbinFileNames], EbinPath) ->
     end,
     init_srv_code(EbinFileNames, EbinPath).
 
-do_load(Flag) ->
+do_load() ->
     {EbinPath, EbinFileNames} = get_srv_ebin_info(),
 %%    ?debug("ebin路径：~ts，ebin路径下的文件：~w", [EbinPath, EbinFileNames]),
-    do_load(EbinFileNames, EbinPath, Flag),
+    do_load(EbinFileNames, EbinPath),
     ok.
 
-do_load([], _EbinPath, _Flag) ->
+do_load([], _EbinPath) ->
     ok;
-do_load([FileName | EbinFileNames], EbinPath, Flag) ->
+do_load([FileName | EbinFileNames], EbinPath) ->
     BeamPath = filename:join(EbinPath, FileName),
     case beam_md5_hex_string(BeamPath) of
         {ok, Mod, Md5HexString} ->
@@ -135,7 +135,7 @@ do_load([FileName | EbinFileNames], EbinPath, Flag) ->
         _ ->
             skip
     end,
-    do_load(EbinFileNames, EbinPath, Flag).
+    do_load(EbinFileNames, EbinPath).
 
 %% 获取服务器ebin信息
 get_srv_ebin_info() ->

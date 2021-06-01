@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% @author huangzaoyi
 %%% @copyright (C) 2021, <COMPANY>
-%%% @doc 服务器时间管理进程
+%%% @doc 服务器时间管理进程 是否需要等待其他进程执行完0点更新或5点更新，由其他进程决定。可以使用异步，或者带超时的同步
 %%% @end
 %%%-------------------------------------------------------------------
 -module(srv_time).
@@ -24,6 +24,18 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {}).
+
+%% 0点触发的事件 {M,F,A}
+zero_fire_events(zone) ->
+    [];
+zero_fire_events(center) ->
+    [].
+
+%% 5点触发的事件 {M,F,A}
+five_fire_events(zone) ->
+    [];
+five_fire_events(center) ->
+    [].
 
 %% 获取时间缓存时间戳
 -spec get_time_cache(zero | day_five | date) -> term() | undefined.
@@ -105,26 +117,39 @@ code_change(_OldVsn, State, _Extra) ->
 %% 0点更新
 do_handle_info({next_hour, 0}, State) ->
     ?info("0点更新"),
-    load_time_cache(),
-    srv_config:save(last_update_zero, get_time_cache(zero)),
-    %% TODO 0点触发的事件
     {NextHour, NextHourDiff} = get_next_hour_info(),
     erlang:send_after(NextHourDiff * 1000, self(), {next_hour, NextHour}),
+    load_time_cache(),
+    Zero = get_time_cache(zero),
+    case Zero > srv_config:get(last_update_zero, 0) of
+        true ->
+            zero_flush(zero_fire_events(srv_lib:server_type()), get_time_cache(week_day)),
+            ?info("0点更新执行完成");
+        _ ->
+            ?error("0点更新执行异常，0点时间戳：~w", [Zero])
+    end,
+    srv_config:save(last_update_zero, Zero),
     {noreply, State};
 
 %% 5点更新
 do_handle_info({next_hour, 5}, State) ->
     ?info("5点更新"),
-    srv_config:save(last_update_day_five, get_time_cache(day_five)),
-    %% TODO 5点触发的事件
     {NextHour, NextHourDiff} = get_next_hour_info(),
     erlang:send_after(NextHourDiff * 1000, self(), {next_hour, NextHour}),
+    DayFive = get_time_cache(day_five),
+    case DayFive > srv_config:get(last_update_day_five, 0) of
+        true ->
+            five_flush(five_fire_events(srv_lib:server_type()), get_time_cache(week_day)),
+            ?info("5点更新执行完成");
+        _ ->
+            ?error("5点更新执行异常，5点时间戳：~w", [DayFive])
+    end,
+    srv_config:save(last_update_day_five, DayFive),
     {noreply, State};
 
 %% 其他整点
 do_handle_info({next_hour, Hour}, State) ->
     ?info("~w点更新", [Hour]),
-    %% TODO x点触发的时间
     {NextHour, NextHourDiff} = get_next_hour_info(),
     erlang:send_after(NextHourDiff * 1000, self(), {next_hour, NextHour}),
     {noreply, State};
@@ -139,7 +164,8 @@ do_handle_info(_Info, State) ->
 load_time_cache() ->
     ets:insert(srv_time_cache, {zero, time_util:timestamp(zero)}),
     ets:insert(srv_time_cache, {day_five, time_util:timestamp(day_five)}),
-    ets:insert(srv_time_cache, {date, time_util:date()}).
+    ets:insert(srv_time_cache, {date, time_util:date()}),
+    ets:insert(srv_time_cache, {week_day, time_util:day_of_week()}).
 
 %% 获取下一个小时信息
 get_next_hour_info() ->
@@ -153,3 +179,31 @@ get_next_hour_info() ->
         end,
     NextHourDiff = ?hour_s - ?min_s(Min) - Sec,
     {NextHour, NextHourDiff}.
+
+%% 0点更新
+zero_flush([], _WeekDay) ->
+    ok;
+zero_flush([Func | Funcs], WeekDay) ->
+    zero_flush(Func, WeekDay),
+    zero_flush(Funcs, WeekDay);
+zero_flush({M, F, A}, WeekDay) ->
+    case catch erlang:apply(M, F, [WeekDay | A]) of
+        ok ->
+            ok;
+        _Err ->
+            ?error("0点更新执行~w:~w:~w错误，原因：~w", [M, F, A, _Err])
+    end.
+
+%% 5点更新
+five_flush([], _WeekDay) ->
+    ok;
+five_flush([Func | Funcs], WeekDay) ->
+    five_flush(Func, WeekDay),
+    five_flush(Funcs, WeekDay);
+five_flush({M, F, A}, WeekDay) ->
+    case catch erlang:apply(M, F, [WeekDay | A]) of
+        ok ->
+            ok;
+        _Err ->
+            ?error("5点更新执行~w:~w:~w错误，原因：~w", [M, F, A, _Err])
+    end.
