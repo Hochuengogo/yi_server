@@ -25,8 +25,11 @@
     , compress/1
     , uncompress/1
     , check_cd/2
-    , term_to_list/1
-    , list_to_term/1
+    , term_to_string/1
+    , string_to_term/1
+    , async_apply/4
+    , handle_async_timeout/1
+    , handle_async_return/2
 ]).
 
 %% @doc 获取进程字典值
@@ -125,13 +128,44 @@ check_cd(Key, Ms) ->
     end.
 
 %% @doc erlang结构转字符串
--spec term_to_list(term()) -> list().
-term_to_list(Term) ->
-    lists:flatten(io_lib:format("~w", [Term])).
+-spec term_to_string(term()) -> list().
+term_to_string(Term) ->
+    io_lib:format("~w", [Term]).
 
 %% @doc 字符串转erlang结构
--spec list_to_term(list()) -> term().
-list_to_term(String) ->
+-spec string_to_term(list()) -> term().
+string_to_term(String) ->
     {ok, Tokens, _} = erl_scan:string(String ++ "."),
     {ok, Term} = erl_parse:parse_term(Tokens),
     Term.
+
+%% @doc 异步调用，有超时时间、回调
+%% 执行该方法的进程需要处理 {'@async_apply_return', Idx, Ret} 和 {'@async_apply_timeout', Idx} 消息
+-spec async_apply(pid(), mfa(), pos_integer(), mfa()) -> ok.
+async_apply(Pid, MFA = {_, _, _}, Timeout, CallBack = {_, _, _}) ->
+    Idx = util:get('@async_apply_idx', 1),
+    put('@async_apply_idx', Idx + 1),
+    Ref = erlang:send_after(Timeout, self(), {'@async_apply_timeout', Idx}),
+    Pid ! {'@async_apply', MFA, self(), Idx},
+    put({'@async_apply_data', Idx}, {Ref, MFA, CallBack}).
+
+%% @doc 异步调用，超时处理
+-spec handle_async_timeout(pos_integer()) -> ok.
+handle_async_timeout(Idx) ->
+    case erase({'@async_apply_data', Idx}) of
+        {_Ref, _MFA, _CallBack = {M, F, A}} ->
+            catch erlang:apply(M, F, [timeout | A]);
+        _ ->
+            skip
+    end.
+
+%% @doc 异步调用，正常返回处理
+-spec handle_async_return(pos_integer(), term()) -> ok.
+handle_async_return(Idx, Ret) ->
+    case erase({'@async_apply_data', Idx}) of
+        {Ref, _MFA, _CallBack = {M, F, A}} ->
+            erlang:cancel_timer(Ref),
+            catch erlang:apply(M, F, [Ret | A]);
+        _ ->
+            skip
+    end.

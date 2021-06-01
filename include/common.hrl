@@ -61,4 +61,7 @@
 -define(stop_end, io_lib:format("关闭完成:~w", [?MODULE])).
 -define(stop_end(Name), io_lib:format("关闭完成:~w", [Name])).
 
+-export_type([srv_id/0, language/0]).
 
+-type srv_id() :: binary().
+-type language() :: chinese.

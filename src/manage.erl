@@ -6,11 +6,11 @@
 %%% @end
 %%% Created : 08. 三月 2020 17:08
 %%%-------------------------------------------------------------------
--module(manager).
+-module(manage).
 -author("huangzaoyi").
 
 %% API
--export([start/0, start/1, stop/0]).
+-export([start/0, start/1, stop/0, start_service/1]).
 
 -include("common.hrl").
 -include("logs.hrl").
@@ -23,11 +23,11 @@
 
 %% 要启动的进程
 -define(start_zone_ids, [
-    srv_code, db, srv_time, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
+    db, srv_code, srv_time, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
 ]).
 
 -define(start_center_ids, [
-    srv_code, db, srv_time, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
+    db, srv_code, srv_time, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
 ]).
 
 %% @doc 启动系统
@@ -44,48 +44,62 @@ stop() ->
 start_app([]) ->
     ok;
 start_app([App | Apps]) ->
-    application:ensure_all_started(App),
+    {ok, _} = application:ensure_all_started(App),
     start_app(Apps).
 
 %% @doc 关闭应用
 stop_app([]) ->
     init:stop(),
     ok;
+stop_app([yi_server = App| Apps]) ->
+    ok = application:stop(App),
+    stop_all_fire(),
+    stop_app(Apps);
 stop_app([App | Apps]) ->
-    application:stop(App),
+    ok = application:stop(App),
     stop_app(Apps).
 
 %% @doc 根据服务器类型启动服务
 start(zone) ->
     case start_service(?start_zone_ids) of
         ok ->
-            ?info("启动服务器成功"),
-            io:format("启动服务器成功");
+            start_all_fire();
         _ ->
-            ?error("启动服务器失败"),
-            io:format("启动服务器失败")
+            ?error("启动服务器失败")
     end;
 start(center) ->
     case start_service(?start_center_ids) of
         ok ->
-            ?info("启动服务器成功"),
-            io:format("启动服务器成功");
+            start_all_fire();
         _ ->
-            ?error("启动服务器失败"),
-            io:format("启动服务器失败")
+            ?error("启动服务器失败")
     end.
+
+%% @doc 启动服务完成触发
+start_all_fire() ->
+    SrvStartTime = srv_config:get(server_start_time, 0),
+    NewSrvStartTime = SrvStartTime + 1,
+    srv_config:save(server_start_time, NewSrvStartTime),
+    ?info("启动服务器第[~w]次成功", [NewSrvStartTime]),
+    ok.
+
+%% @doc 关闭服务完成触发
+stop_all_fire() ->
+    ok.
 
 %% 启动服务
 start_service([]) -> ok;
 start_service([Id | Ids]) ->
-    case catch start_service(get_service(Id)) of
+    case catch start_service(Id) of
         {ok, _Pid} ->
             start_service(Ids);
         _Err ->
             ?error("启动服务失败, 原因:~w", [_Err]),
             false
     end;
-start_service(Service = #service{depend_on = SupMod}) when SupMod /= undefined ->
+start_service(Id) when is_atom(Id) ->
+    start_service(get_service(Id));
+start_service(Service = #service{depend_on = SupMod}) when SupMod =/= undefined ->
     supervisor:start_child(SupMod, child_spec(Service));
 start_service(Service = #service{}) ->
     supervisor:start_child(worker_sup, child_spec(Service));
@@ -102,45 +116,58 @@ child_spec(#service{id = Id, start = Start, restart = Restart, type = Type, shut
     }.
 
 %% 获取服务配置
+get_service(srv_config) ->
+    #service{
+        id = srv_config,
+        start = {srv_config, start_link, []},
+        desc = "服务器配置管理进程"
+    };
 get_service(srv_code) ->
     #service{
         id = srv_code,
-        start = {srv_code, start_link, []}
+        start = {srv_code, start_link, []},
+        desc = "模块代码更新管理进程"
     };
 get_service(srv_time) ->
     #service{
         id = srv_time,
-        start = {srv_time, start_link, []}
+        start = {srv_time, start_link, []},
+        desc = "服务器时间管理进程"
     };
 get_service(db) ->
     #service{
         id = db,
-        start = {db_lib, start_link, []}
+        start = {db_lib, start_link, []},
+        desc = "mysql数据库连接池"
     };
 get_service(gateway_sup) ->
     #service{
         id = gateway_sup,
         start = {gateway_sup, start_link, []},
-        type = supervisor
+        type = supervisor,
+        desc = "网关总supervisor"
     };
 get_service(gateway_acceptor_sup) ->
     #service{
         id = gateway_acceptor_sup,
         start = {gateway_acceptor_sup, start_link, []},
         type = supervisor,
-        depend_on = gateway_sup
+        depend_on = gateway_sup,
+        desc = "网关接收进程supervisor"
     };
 get_service(gateway_worker_sup) ->
     #service{
         id = gateway_worker_sup,
         start = {gateway_worker_sup, start_link, []},
         type = supervisor,
-        depend_on = gateway_sup
+        depend_on = gateway_sup,
+        desc = "网关工作进程supervisor"
     };
 get_service(gateway_listener) ->
     #service{
         id = gateway_listener,
         start = {gateway_listener, start_link, []},
         type = worker,
-        depend_on = gateway_sup
+        depend_on = gateway_sup,
+        desc = "网关监听进程"
     }.

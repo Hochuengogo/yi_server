@@ -308,7 +308,7 @@ function start() {
     max_port=$(expr ${min_port} + 100)
     if [[ -e ${server_path} && -e ${server_path}/server.config ]]; then
         cd ${server_path}
-        ulimit -S -n 10240 && ${ERL} -pa ${cfg[root]}/ebin -name ${node_name} -setcookie ${cfg[cookie]} -hidden -smp enable +P 1024000 +e 102400 +Q 65536 -kernel inet_dist_listen_min ${min_port} inet_dist_listen_max ${max_port} -s manager start
+        ulimit -S -n 10240 && ${ERL} -pa ${cfg[root]}/ebin -name ${node_name} -setcookie ${cfg[cookie]} -hidden -smp enable +P 1024000 +e 102400 +Q 65536 -kernel inet_dist_listen_min ${min_port} inet_dist_listen_max ${max_port} -s manage start
     else
         ${PRINT} "服务器%s未安装" ${server_name}
         exit 1

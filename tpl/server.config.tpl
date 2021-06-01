@@ -4,7 +4,7 @@
 {server_ids, [<<"{platform}_{server_id}">>]}. %% 服务器ID列表
 {server_type, {server_type}}. %% 服务器类型 zone | center
 {platform, <<"{platform}">>}. %% 平台
-{language, <<"{language}">>}. %% 语言
+{language, {language}}. %% 语言
 {version, <<"{version}">>}. %% 版本
 {code_path, "{code_path}"}. %% 代码路径
 

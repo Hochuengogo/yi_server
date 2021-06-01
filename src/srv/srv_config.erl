@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([get/1, get/2, set/2, save/2, lock/1, unlock/1]).
+-export([get/1, get/2, set/2, save/2, lock/1, unlock/1, reload/0, set_version/1]).
 -export([start_link/0, call/1, cast/1, info/1]).
 
 %% gen_server callbacks
@@ -73,6 +73,16 @@ lock(Key) ->
 unlock(Key) ->
     call({unlock, Key}).
 
+%% @doc 重新加载配置
+-spec reload() -> ok.
+reload() ->
+    info(reload).
+
+%% @doc 设置服务器版本
+-spec set_version(binary()) -> ok.
+set_version(Version) ->
+    info({set_version, Version}).
+
 call(Call) ->
     ?scall(?MODULE, Call).
 
@@ -94,12 +104,12 @@ init([]) ->
     dets:to_ets(srv_config, srv_config),
     %% 用于处理锁
     ets:new(srv_lock, [named_table, set, protected, {keypos, 1}]),
-    load(),
+    do_load(),
     ?info(?start_end),
     {ok, #state{}}.
 
 %% 加载配置
-load() ->
+do_load() ->
     {ok, Terms} = file:consult(?config_filepath),
     Fun = fun({Key, Val}) -> set(Key, Val) end,
     lists:foreach(Fun, Terms).
@@ -119,6 +129,16 @@ handle_call(_Request, _From, State) ->
 
 handle_cast(_Request, State) ->
     {noreply, State}.
+
+%% 重新加载配置
+handle_info(reload, State) ->
+    do_load(),
+    {noreply, State};
+
+%% 设置服务器版本
+handle_info({set_version, Version}, State) ->
+    save(version, Version),
+    {noreply, State};
 
 handle_info(_Info, State) ->
     {noreply, State}.
