@@ -27,7 +27,7 @@
 ]).
 
 -define(start_center_ids, [
-    db, srv_code, srv_time, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
+    db, srv_code, srv_time
 ]).
 
 %% @doc 启动系统
@@ -85,6 +85,7 @@ start_all_fire() ->
 
 %% @doc 关闭服务完成触发
 stop_all_fire() ->
+    ?info("关闭服务器完成"),
     ok.
 
 %% 启动服务

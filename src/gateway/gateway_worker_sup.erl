@@ -32,7 +32,7 @@ init(_Args) ->
         id => gateway_worker,
         start =>{gateway_worker, start_link, []},
         restart => temporary,
-        shutdown => 5000,
+        shutdown => 30000,
         type => worker,
         modules => [gateway_worker]
     },

@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([get/1, get/2, set/2, save/2, lock/1, unlock/1, reload/0, set_version/1]).
+-export([get/1, get/2, set/2, save/2, lock/1, unlock/1, reload/0, set_version/1, set_open_srv_timestamp/1]).
 -export([start_link/0, call/1, cast/1, info/1]).
 
 %% gen_server callbacks
@@ -83,6 +83,11 @@ reload() ->
 set_version(Version) ->
     info({set_version, Version}).
 
+%% @doc 设置开服时间
+-spec set_open_srv_timestamp(pos_integer()) -> ok.
+set_open_srv_timestamp(OpenSrvTimestamp) ->
+    info({set_open_srv_timestamp, OpenSrvTimestamp}).
+
 call(Call) ->
     ?scall(?MODULE, Call).
 
@@ -111,8 +116,20 @@ init([]) ->
 %% 加载配置
 do_load() ->
     {ok, Terms} = file:consult(?config_filepath),
-    Fun = fun({Key, Val}) -> set(Key, Val) end,
-    lists:foreach(Fun, Terms).
+    do_load(Terms).
+do_load([]) ->
+    ok;
+do_load([{Key, Val} | Terms]) when Key =:= version orelse Key =:= open_srv_timestamp ->
+    case ets:member(srv_config, Key) of
+        false ->
+            save(Key, Val);
+        _ ->
+            skip
+    end,
+    do_load(Terms);
+do_load([{Key, Val} | Terms]) ->
+    save(Key, Val),
+    do_load(Terms).
 
 %% 加锁
 handle_call({lock, Key}, _From, State) ->
@@ -138,6 +155,11 @@ handle_info(reload, State) ->
 %% 设置服务器版本
 handle_info({set_version, Version}, State) ->
     save(version, Version),
+    {noreply, State};
+
+%% 设置开服时间
+handle_info({set_open_srv_timestamp, OpenSrvTimestamp}, State) ->
+    save(open_srv_timestamp, OpenSrvTimestamp),
     {noreply, State};
 
 handle_info(_Info, State) ->

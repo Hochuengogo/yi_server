@@ -24,8 +24,11 @@
 -include("logs.hrl").
 -include("gateway.hrl").
 
+pro_name(Num) ->
+    list_to_atom(lists:concat(["gateway_acceptor_", Num])).
+
 start_acceptor(LSock, Num) ->
-    Name = list_to_atom(lists:concat(["gateway_acceptor_", Num])),
+    Name = pro_name(Num),
     Acceptor = #{
         id => Name,
         start => {?MODULE, start_link, [LSock, Num]},
@@ -37,16 +40,17 @@ start_acceptor(LSock, Num) ->
     supervisor:start_child(gateway_acceptor_sup, Acceptor).
 
 start_link(LSock, Num) ->
-    Name = list_to_atom(lists:concat(["gateway_acceptor_", Num])),
+    Name = pro_name(Num),
     gen_server:start_link({local, Name}, ?MODULE, [LSock], []).
 
 init([LSock]) ->
-    ?info(?start_begin),
+    {registered_name, Name} = erlang:process_info(self(), registered_name),
+    ?info(?start_begin(Name)),
     process_flag(trap_exit, true),
     %% 异步监听客户端的连接
     {ok, Ref} = prim_inet:async_accept(LSock, -1),
     Acceptor = #gateway_acceptor{lsock = LSock, ref = Ref},
-    ?info(?start_end),
+    ?info(?start_end(Name)),
     {ok, Acceptor}.
 
 handle_call(_Request, _From, State) ->
@@ -67,8 +71,9 @@ handle_info(_Info, State) ->
     end.
 
 terminate(_Reason, _State) ->
-    ?info(?stop_begin),
-    ?info(?stop_end),
+    {registered_name, Name} = erlang:process_info(self(), registered_name),
+    ?info(?stop_begin, (Name)),
+    ?info(?stop_end, (Name)),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -110,7 +115,7 @@ spawn_worker(CSock) ->
             (Opt, Acc) -> [Opt | Acc]
         end,
     NewOpts = lists:foldl(Fun, [], Opts),
-    case inet:setopts(CSock, [{packet, 2} | NewOpts]) of
+    case inet:setopts(CSock, NewOpts) of
         ok ->
             case gateway_worker:start_worker() of
                 {ok, Pid} ->
@@ -127,6 +132,6 @@ spawn_worker(CSock) ->
                     catch inet:close(CSock)
             end;
         _Err ->
-            ?error("设置socket参数失败, 返回:~w, 参数:~w", [_Err, [{packet, 2} | NewOpts]]),
+            ?error("设置socket参数失败, 返回:~w, 参数:~w", [_Err, NewOpts]),
             catch inet:close(CSock)
     end.

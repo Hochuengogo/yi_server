@@ -26,40 +26,31 @@
     , unpack_array/2
 ]).
 
--define(uint15_size, 32767). %% 无符号15位最大值
+-define(uint16_size, 65535). %% 无符号16位最大值
 
 %% @doc 打包字符串
-%% 使用15位表示字符串长度，1位表示是否字符串结束
-%% <<字符串长度:15,字符串是否结束:1,字符串内容,字符串长度:15,字符串是否结束:1,字符串内容>>
+%% 使用16位表示字符串长度，8位表示是否字符串结束
+%% <<字符串长度:16,字符串是否结束:8,字符串内容,字符串长度:16,字符串是否结束:8,字符串内容>>
 -spec pack_string(binary()) -> binary().
 pack_string(String) ->
     Size = byte_size(String),
-    Str = binary_to_list(String),
-    pack_string(Size, Str, <<>>).
-pack_string(Size, Str, Acc) when Size > ?uint15_size ->
-    NewSize = Size - ?uint15_size,
-    {SubStr, NewStr} = sublist(Str, ?uint15_size),
-    NewAcc = <<Acc/binary, ?uint15_size:15, 1:1, (list_to_binary(SubStr))/binary>>,
-    pack_string(NewSize, NewStr, NewAcc);
-pack_string(Size, Str, Acc) when Size =< ?uint15_size ->
-    <<Acc/binary, Size:15, 0:1, (list_to_binary(Str))/binary>>.
-
-%% 获取子字符串，返回截取部分和剩余部分
-sublist(List, L) ->
-    sublist(List, L, []).
-sublist([I | List], L, Acc) when L > 0 ->
-    sublist(List, L - 1, [I | Acc]);
-sublist(List, _L, Acc) ->
-    {lists:reverse(Acc), List}.
+    pack_string(Size, String, <<>>).
+pack_string(Size, String, Bin) when Size > ?uint16_size ->
+    <<Str:Size/binary, SubStr/binary>> = String,
+    NewSize = Size - ?uint16_size,
+    NewAcc = <<Bin/binary, ?uint16_size:16, 1:8, Str/binary>>,
+    pack_string(NewSize, SubStr, NewAcc);
+pack_string(Size, String, Bin) ->
+    <<Bin/binary, Size:16, 0:8, String/binary>>.
 
 %% @doc 解包字符串
 -spec unpack_string(binary()) -> {binary(), binary()}.
 unpack_string(Bin) ->
     unpack_string(Bin, <<>>).
-unpack_string(<<Size:15, 1:1, SubStr:Size/binary, Bin/binary>>, Str) ->
+unpack_string(<<Size:16, 1:8, SubStr:Size/binary, Bin/binary>>, Str) ->
     NewStr = <<Str/binary, SubStr/binary>>,
     unpack_string(Bin, NewStr);
-unpack_string(<<Size:15, 0:1, SubStr:Size/binary, Bin/binary>>, Str) ->
+unpack_string(<<Size:16, 0:8, SubStr:Size/binary, Bin/binary>>, Str) ->
     NewStr = <<Str/binary, SubStr/binary>>,
     {NewStr, Bin}.
 
