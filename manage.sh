@@ -15,133 +15,131 @@ function get_root() {
 
 REBAR=rebar3
 ERL=erl
-PRINT=printf
 
 # 引用配置脚本
 ROOT=$(get_root)
 source ${ROOT}/setting.sh
 
 # 定义字典
-declare -A cfg
-cfg[root]=${ROOT}
-cfg[game_name]=${GAME_NAME}
-cfg[game_lang]=${GAME_LANG}
-cfg[cookie]=${COOKIE}
-cfg[version]=${VERSION}
-cfg[zone_path]=${ZONE_PATH}
-cfg[platform]=${PLATFORM}
-cfg[base_port]=${BASE_PORT}
-cfg[mysql_host]=${MYSQL_HOST}
-cfg[mysql_port]=${MYSQL_PORT}
-cfg[mysql_user]=${MYSQL_USER}
-cfg[mysql_password]=${MYSQL_PASSWORD}
-cfg[gateway_host]=${GATEWAY_HOST}
-cfg[make_args]=${MAKE_ARGS}
-cfg[log_level]=${LOG_LEVEL}
+declare -A CFG
+CFG[root]=${ROOT}
+CFG[game_name]=${GAME_NAME}
+CFG[game_lang]=${GAME_LANG}
+CFG[cookie]=${COOKIE}
+CFG[version]=${VERSION}
+CFG[zone_path]=${ZONE_PATH}
+CFG[platform]=${PLATFORM}
+CFG[base_port]=${BASE_PORT}
+CFG[mysql_host]=${MYSQL_HOST}
+CFG[mysql_port]=${MYSQL_PORT}
+CFG[mysql_user]=${MYSQL_USER}
+CFG[mysql_password]=${MYSQL_PASSWORD}
+CFG[gateway_host]=${GATEWAY_HOST}
+CFG[make_args]=${MAKE_ARGS}
+CFG[log_level]=${LOG_LEVEL}
+CFG[author]=${AUTHOR}
 
-if [ ! $msg ]; then
-    declare -A msg
-fi
+declare -A MSG
 
 # 获取依赖库
-msg[get_dep]="获取依赖库"
+MSG[get_dep]="获取依赖库"
 function get_dep() {
-    ${PRINT} "开始获取依赖库\n"
-    cd ${cfg[root]}/lib && $REBAR upgrade
-    ${PRINT} "获取依赖库完成\n"
+    printf "开始获取依赖库\n"
+    cd ${CFG[root]}/lib && $REBAR upgrade
+    printf "获取依赖库完成\n"
 }
 
 # 删除依赖库
-msg[clean_dep]="删除依赖库"
+MSG[clean_dep]="删除依赖库"
 function clean_dep() {
-    ${PRINT} "开始删除依赖库\n"
-    if [[ -e ${cfg[root]}/lib/_build ]]; then
-        rm -rf ${cfg[root]}/lib/_build
+    printf "开始删除依赖库\n"
+    if [[ -e ${CFG[root]}/lib/_build ]]; then
+        rm -rf ${CFG[root]}/lib/_build
     fi
-    if [[ -e ${cfg[root]}/tbin ]]; then
-        rm -rf ${cfg[root]}/tbin
+    if [[ -e ${CFG[root]}/tbin ]]; then
+        rm -rf ${CFG[root]}/tbin
     fi
-    ${PRINT} "删除依赖库完成\n"
+    printf "删除依赖库完成\n"
 }
 
 # 编译依赖，并将beam复制到tbin目录
-msg[make_dep]="编译依赖，并将beam复制到tbin目录"
+MSG[make_dep]="编译依赖，并将beam复制到tbin目录"
 function make_dep() {
-    ${PRINT} "开始编译依赖库\n"
-    cd ${cfg[root]}/lib && ${REBAR} compile
+    printf "开始编译依赖库\n"
+    cd ${CFG[root]}/lib && ${REBAR} compile
     cp_dep
-    ${PRINT} "编译依赖库完成\n"
+    printf "编译依赖库完成\n"
 }
 
 # 复制依赖库的beam、app文件
-msg[cp_dep]="复制依赖库的beam、app文件"
+MSG[cp_dep]="复制依赖库的beam、app文件"
 function cp_dep() {
-    ${PRINT} "开始复制依赖库\n"
-    lib_path=${cfg[root]}/lib/_build/default/lib
-    if [[ ! -e ${cfg[root]}/tbin ]]; then
-        mkdir ${cfg[root]}/tbin
+    printf "开始复制依赖库\n"
+    lib_path=${CFG[root]}/lib/_build/default/lib
+    if [[ ! -e ${CFG[root]}/tbin ]]; then
+        mkdir ${CFG[root]}/tbin
     fi
     for lib in `find ${lib_path} -type d -maxdepth 1` ; do
         if [[ ${lib} != ${lib_path} ]]; then
-            cp -a ${lib}/ebin/. ${cfg[root]}/tbin
+            cp -a ${lib}/ebin/. ${CFG[root]}/tbin
         fi
     done
-    ${PRINT} "复制依赖库完成\n"
+    printf "复制依赖库完成\n"
 }
 
 # 安装服务器
-msg[install]="安装服务器"
+MSG[install]="安装服务器"
 function install() {
-  ${PRINT} "请输入服务器类型(zone|center):"
+  printf "请输入服务器类型(zone|center):"
   read server_type
   if [[ ! (${server_type} == zone || ${server_type} == center) ]]; then
-      ${PRINT} "服务器类型只能为zone或center\n"
+      printf "服务器类型只能为zone或center\n"
       exit 1
   fi
 
-  ${PRINT} "请输入服务器ID(0~100):"
+  printf "请输入服务器ID(0~100):"
   read server_id
   expr ${server_id} + 0 1>/dev/null 2>&1
   if [[ $? -eq 0 && ! (${server_id} -ge 0 && ${server_id} -le 100) ]]; then
-    ${PRINT} "服务器ID不在0~100范围内\n"
+    printf "服务器ID不在0~100范围内\n"
     exit 1
   fi
 
   # 判断服务器根路径是否存在
-  if [[ ! -e ${cfg[zone_path]} ]]; then
-      ${PRINT} "创建服务器根目录\n"
-      mkdir ${cfg[zone_path]}
+  if [[ ! -e ${CFG[zone_path]} ]]; then
+      printf "创建服务器根目录\n"
+      mkdir ${CFG[zone_path]}
   fi
 
-  mysql_db=${cfg[game_name]}_${cfg[platform]}_${server_type}_${server_id}
-  mysql_cmd="mysql -h${cfg[mysql_host]} -u${cfg[mysql_user]} -p${cfg[mysql_password]} -P ${cfg[mysql_port]}"
+  mysql_db=${CFG[game_name]}_${CFG[platform]}_${server_type}_${server_id}
+  mysql_cmd="mysql -h${CFG[mysql_host]} -u${CFG[mysql_user]} -p${CFG[mysql_password]} -P ${CFG[mysql_port]}"
   ${mysql_cmd} -e "use ${mysql_db};"
   mysql_exist=$?
 
-  server_name=${cfg[game_name]}_${cfg[platform]}_${server_type}_${server_id}
-  server_path=${cfg[zone_path]}/${server_name}
+  server_name=${CFG[game_name]}_${CFG[platform]}_${server_type}_${server_id}
+  server_path=${CFG[zone_path]}/${server_name}
 
   if [ ${mysql_exist} = 0 ]; then
-      ${PRINT} "数据库%s已存在\n" ${mysql_db}
+      printf "数据库%s已存在\n" ${mysql_db}
       exit 1
   fi
   if [[ -e ${server_path} ]]; then
-      ${PRINT} "已存在%s路径\n" ${server_path}
+      printf "已存在%s路径\n" ${server_path}
       exit 1
   fi
 
   ${mysql_cmd} -e "create database ${mysql_db};"
   if [ $? = 0 ]; then
-      ${PRINT} "数据库%s创建成功\n" ${mysql_db}
+      printf "数据库%s创建成功\n" ${mysql_db}
   else
-      ${PRINT} "数据库%s创建失败\n" ${mysql_db}
+      printf "数据库%s创建失败\n" ${mysql_db}
       exit 1
   fi
-  ${mysql_cmd} -D${mysql_db}<${cfg[root]}/server.sql
+  ${mysql_cmd} -D${mysql_db}<${CFG[root]}/server.sql
   if [ $? = 0 ]; then
-      ${PRINT} "数据库%s创建表成功\n" ${mysql_db}
+      printf "数据库%s创建表成功\n" ${mysql_db}
   else
-      ${PRINT} "数据库%s创建表失败\n" ${mysql_db}
+      printf "数据库%s创建表失败\n" ${mysql_db}
       exit 1
   fi
 
@@ -149,82 +147,82 @@ function install() {
   mkdir ${server_path}
   mkdir ${server_path}/dets
   mkdir ${server_path}/log
-  gateway_port=$(expr ${cfg[base_port]} + ${server_id})
+  gateway_port=$(expr ${CFG[base_port]} + ${server_id})
   open_srv_timestamp=`date '+%s'`
-  sed_str="s/{server_id}/${server_id}/g;s/{server_type}/${server_type}/g;s/{platform}/${cfg[platform]}/g;s/{mysql_host}/${cfg[mysql_host]}/g;s/{mysql_port}/${cfg[mysql_port]}/g;s/{mysql_user}/${cfg[mysql_user]}/g;s/{mysql_password}/${cfg[mysql_password]}/g;s/{mysql_db}/${mysql_db}/g;s/{gateway_host}/${cfg[gateway_host]}/g;s/{gateway_port}/${gateway_port}/g;s/{game_name}/${cfg[game_name]}/g;s/{open_srv_timestamp}/${open_srv_timestamp}/g;s/{language}/${cfg[game_lang]}/g;s/{version}/${cfg[version]}/g;s#{code_path}#${cfg[root]}#g;s/{cookie}/${cfg[cookie]}/g"
-  cat ${cfg[root]}/tpl/server.config.tpl | sed "${sed_str}" > ${server_path}/server.config
+  sed_str="s/{server_id}/${server_id}/g;s/{server_type}/${server_type}/g;s/{platform}/${CFG[platform]}/g;s/{mysql_host}/${CFG[mysql_host]}/g;s/{mysql_port}/${CFG[mysql_port]}/g;s/{mysql_user}/${CFG[mysql_user]}/g;s/{mysql_password}/${CFG[mysql_password]}/g;s/{mysql_db}/${mysql_db}/g;s/{gateway_host}/${CFG[gateway_host]}/g;s/{gateway_port}/${gateway_port}/g;s/{game_name}/${CFG[game_name]}/g;s/{open_srv_timestamp}/${open_srv_timestamp}/g;s/{language}/${CFG[game_lang]}/g;s/{version}/${CFG[version]}/g;s#{code_path}#${CFG[root]}#g;s/{cookie}/${CFG[cookie]}/g"
+  cat ${CFG[root]}/tpl/server.config.tpl | sed "${sed_str}" > ${server_path}/server.config
 
-  ${PRINT} "安装服务器%s完成\n" ${server_name}
+  printf "安装服务器%s完成\n" ${server_name}
 }
 
 # 卸载服务器
-msg[uninstall]="卸载服务器(uninstall:server_type:server_id)"
+MSG[uninstall]="卸载服务器(uninstall:server_type:server_id)"
 function uninstall() {
     server_type=$1
     server_id=$2
-    mysql_db=${cfg[game_name]}_${cfg[platform]}_${server_type}_${server_id}
-    mysql_cmd="mysql -h${cfg[mysql_host]} -u${cfg[mysql_user]} -p${cfg[mysql_password]} -P ${cfg[mysql_port]}"
+    mysql_db=${CFG[game_name]}_${CFG[platform]}_${server_type}_${server_id}
+    mysql_cmd="mysql -h${CFG[mysql_host]} -u${CFG[mysql_user]} -p${CFG[mysql_password]} -P ${CFG[mysql_port]}"
     ${mysql_cmd} -e "use ${mysql_db};"
     mysql_exist=$?
 
-    server_name=${cfg[game_name]}_${cfg[platform]}_${server_type}_${server_id}
-    server_path=${cfg[zone_path]}/${server_name}
+    server_name=${CFG[game_name]}_${CFG[platform]}_${server_type}_${server_id}
+    server_path=${CFG[zone_path]}/${server_name}
 
     if [[ ${mysql_exist} != 0 && ! -e ${server_path} ]]; then
-        ${PRINT} "服务器%s未安装\n"
+        printf "服务器%s未安装\n" ${server_name}
         exit 0
     fi
-    ${PRINT} "是否确定卸载服务器%s (yes|no):" ${server_name}
+    printf "是否确定卸载服务器%s (yes|no):" ${server_name}
     read check
     if [[ ${check} = yes ]]; then
         ${mysql_cmd} -e "drop database ${mysql_db};"
         if [ $? = 0 ]; then
-            ${PRINT} "删除数据库%s完成\n" ${mysql_db}
+            printf "删除数据库%s完成\n" ${mysql_db}
         else
-            ${PRINT} "删除数据库%s失败\n" ${mysql_db}
+            printf "删除数据库%s失败\n" ${mysql_db}
             exit 1
         fi
         rm -rf ${server_path}
         if [ $? = 0 ]; then
-            ${PRINT} "删除服务器路径%s成功\n" ${server_path}
+            printf "删除服务器路径%s成功\n" ${server_path}
         else
-            ${PRINT} "删除服务器路径%s失败\n" ${server_path}
+            printf "删除服务器路径%s失败\n" ${server_path}
             exit 1
         fi
-        ${PRINT} "卸载服务器%s完成\n" ${server_name}
+        printf "卸载服务器%s完成\n" ${server_name}
     fi
 }
 
 # 编译
-msg[make]="编译"
+MSG[make]="编译"
 function make() {
-    ${PRINT} "开始编译\n"
-    cd ${cfg[root]}
+    printf "开始编译\n"
+    cd ${CFG[root]}
     if [[ ! -e ebin ]]; then
         mkdir ebin
     fi
-    cp -a ${cfg[root]}/tbin/. ${cfg[root]}/ebin
-    cp -a ${cfg[root]}/yi_server.app ${cfg[root]}/ebin
+    cp -a ${CFG[root]}/tbin/. ${CFG[root]}/ebin
+    cp -a ${CFG[root]}/yi_server.app ${CFG[root]}/ebin
     gen_log_level
     mods=`find src -type d | sed "s/^/'/g;s/$/\/\*'\,/g;$ s/.$//g" | tr '\n' ' '`
-    opts=${cfg[make_args]}
+    opts=${CFG[make_args]}
     emakefile="[{[${mods}], ${opts}}]"
     ${ERL} -noshell -eval "make:all([{emake,${emakefile}}])." -s init stop
     if [ $? = 0 ]; then
-        ${PRINT} "编译完成\n"
+        printf "编译完成\n"
     else
-        ${PRINT} "编译失败\n"
+        printf "编译失败\n"
     fi
 }
 
 # 编译模块
-msg[make_mod]="编译模块(make_mod:mod1:mod2:mod3)"
+MSG[make_mod]="编译模块(make_mod:mod1:mod2:mod3)"
 function make_mod() {
-    ${PRINT} "开始编译模块\n"
+    printf "开始编译模块\n"
     tmp_mods=$@
     declare -a mods
     i=0
-    cd ${cfg[root]}
+    cd ${CFG[root]}
     if [[ ! -e ebin ]]; then
         mkdir ebin
     fi
@@ -238,28 +236,28 @@ function make_mod() {
         fi
     done
     if [ ${#mods[@]} = 0 ]; then
-        ${PRINT} "找不到[%s]模块\n" ${tmp_mods}
+        printf "找不到[%s]模块\n" ${tmp_mods}
         exit 1
     fi
     make_mods=`echo ${mods[@]} | tr ' ' '\n' | sed "s/^/'/g;s/$/\/\*'\,/g;$ s/.$//g" | tr '\n' ' '`
-    opts=${cfg[make_args]}
+    opts=${CFG[make_args]}
     emakefile="[{[${make_mods}], ${opts}}]"
     ${ERL} -noshell -eval "make:all([{emake,${emakefile}}])." -s init stop
     if [ $? = 0 ]; then
-        ${PRINT} "编译模块[%s]完成\n" ${make_mods}
+        printf "编译模块[%s]完成\n" ${make_mods}
     else
-        ${PRINT} "编译模块[%s]失败\n" ${make_mods}
+        printf "编译模块[%s]失败\n" ${make_mods}
     fi
 }
 
 # 编译文件
-msg[make_file]="编译文件(make_file:file1:file2:file3)"
+MSG[make_file]="编译文件(make_file:file1:file2:file3)"
 function make_file() {
-    ${PRINT} "开始编译文件\n"
+    printf "开始编译文件\n"
     tmp_files=$@
     declare -a files
     i=0
-    cd ${cfg[root]}
+    cd ${CFG[root]}
     if [[ ! -e ebin ]]; then
         mkdir ebin
     fi
@@ -271,79 +269,124 @@ function make_file() {
         fi
     done
     if [ ${#files[@]} = 0 ]; then
-        ${PRINT} "找不到[%s]文件\n" ${tmp_files}
+        printf "找不到[%s]文件\n" ${tmp_files}
         exit 1
     fi
     make_files=`echo ${files[@]} | tr ' ' '\n' | sed "s/^/'/g;s/$/'\,/g;$ s/.$//g" | tr '\n' ' '`
-    opts=${cfg[make_args]}
+    opts=${CFG[make_args]}
     emakefile="[{[${make_files}], ${opts}}]"
     ${ERL} -noshell -eval "make:all([{emake,${emakefile}}])." -s init stop
     if [ $? = 0 ]; then
-        ${PRINT} "编译文件[%s]完成\n" ${make_files}
+        printf "编译文件[%s]完成\n" ${make_files}
     else
-        ${PRINT} "编译文件[%s]失败\n" ${make_files}
+        printf "编译文件[%s]失败\n" ${make_files}
     fi
 }
 
 # 清除ebin目录
-msg[clean]="清除ebin目录"
+MSG[clean]="清除ebin目录"
 function clean() {
-    ${PRINT} "开始清除ebin目录\n"
-    rm -rf ${cfg[root]}/ebin/*
-    ${PRINT} "清除ebin目录完成\n"
-}
-
-# 热更
-msg[update]="热更(update:server_type:server_id)"
-function update() {
-    ${PRINT} "未实现热更功能"
+    printf "开始清除ebin目录\n"
+    rm -rf ${CFG[root]}/ebin/*
+    printf "清除ebin目录完成\n"
 }
 
 # 启动服务器
-msg[start]="启动服务器(start:server_type:server_id)"
+MSG[start]="启动服务器(start:server_type:server_id)"
 function start() {
     server_type=$1
     server_id=$2
-    server_name=${cfg[game_name]}_${cfg[platform]}_${server_type}_${server_id}
-    server_path=${cfg[zone_path]}/${server_name}
-    node_name=${cfg[game_name]}_${cfg[platform]}_${server_type}_${server_id}@${cfg[gateway_host]}
-    min_port=$(expr ${cfg[base_port]} + 10000)
+    server_name=${CFG[game_name]}_${CFG[platform]}_${server_type}_${server_id}
+    server_path=${CFG[zone_path]}/${server_name}
+    node_name=${CFG[game_name]}_${CFG[platform]}_${server_type}_${server_id}@${CFG[gateway_host]}
+    min_port=$(expr ${CFG[base_port]} + 10000)
     max_port=$(expr ${min_port} + 100)
     if [[ -e ${server_path} && -e ${server_path}/server.config ]]; then
-        cd ${server_path}
-        ulimit -S -n 10240 && ${ERL} -pa ${cfg[root]}/ebin -name ${node_name} -setcookie ${cfg[cookie]} -hidden -smp enable +P 1024000 +e 102400 +Q 65536 -kernel inet_dist_listen_min ${min_port} inet_dist_listen_max ${max_port} -s manage start
+        cmd="ulimit -S -n 10240 && ${ERL} -pa ${CFG[root]}/ebin -name ${node_name} -setcookie ${CFG[cookie]} -hidden -smp enable +P 1024000 +e 102400 +Q 65536 -kernel inet_dist_listen_min ${min_port} inet_dist_listen_max ${max_port} -s manage start"
+        cd ${server_path} && screen -dmS ${node_name} && screen -x -S ${node_name} -p 0 -X stuff "${cmd}\n"
     else
-        ${PRINT} "服务器%s未安装" ${server_name}
+        printf "服务器%s未安装\n" ${server_name}
         exit 1
     fi
 }
 
 # 关闭服务器
-msg[stop]="关闭服务器(stop:server_type:server_id)"
+MSG[stop]="关闭服务器(stop:server_type:server_id)"
 function stop() {
-    ${PRINT} "未实现关闭服务器功能"
+    server_type=$1
+    server_id=$2
+    server_name=${CFG[game_name]}_${CFG[platform]}_${server_type}_${server_id}
+    server_path=${CFG[zone_path]}/${server_name}
+    node_name=${CFG[game_name]}_${CFG[platform]}_${server_type}_${server_id}@${CFG[gateway_host]}
+    exec_node_name=exec_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]}
+    $ERL -name ${exec_node_name} -setcookie ${CFG[cookie]} -noshell -eval "rpc:call('${node_name}',manage,stop,[])." -s init stop
+    if [ $? = 0 ]; then
+        printf "关闭%s节点成功\n" ${node_name}
+    else
+        printf "关闭%s节点失败\n" ${node_name}
+    fi
+}
+
+# 热更
+MSG[update]="热更(update:server_type:server_id)"
+function update() {
+    server_type=$1
+    server_id=$2
+    server_name=${CFG[game_name]}_${CFG[platform]}_${server_type}_${server_id}
+    server_path=${CFG[zone_path]}/${server_name}
+    node_name=${CFG[game_name]}_${CFG[platform]}_${server_type}_${server_id}@${CFG[gateway_host]}
+    exec_node_name=exec_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]}
+    $ERL -name ${exec_node_name} -setcookie ${CFG[cookie]} -noshell -eval "rpc:call('${node_name}',srv_code,hot_update,[])." -s init stop
+    if [ $? = 0 ]; then
+        printf "热更%s节点成功\n" ${node_name}
+    else
+        printf "热更%s节点失败\n" ${node_name}
+    fi
+}
+
+# remsh连接节点
+MSG[remsh]="remsh连接节点(remsh:server_type:server_id)"
+function remsh() {
+    server_type=$1
+    server_id=$2
+    server_name=${CFG[game_name]}_${CFG[platform]}_${server_type}_${server_id}
+    server_path=${CFG[zone_path]}/${server_name}
+    node_name=${CFG[game_name]}_${CFG[platform]}_${server_type}_${server_id}@${CFG[gateway_host]}
+    $ERL -name remsh_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]} -remsh ${node_name} -setcookie ${CFG[cookie]}
 }
 
 # 生成日志等级
-msg[gen_log_level]="生成日志等级"
+MSG[gen_log_level]="生成日志等级"
 function gen_log_level() {
-    ${PRINT} "开始生成日志等级\n"
-    cat ${cfg[root]}/tpl/logs_lib.erl.tpl | sed "s/{log_level}/${cfg[log_level]}/g" > ${cfg[root]}/src/lib/logs_lib.erl
+    printf "开始生成日志等级\n"
+    cat ${CFG[root]}/tpl/logs_lib.erl.tpl | sed "s/{log_level}/${CFG[log_level]}/g" > ${CFG[root]}/src/lib/logs_lib.erl
     if [ $? == 0 ]; then
-        ${PRINT} "生成日志等级[%s]成功\n" ${cfg[log_level]}
+        printf "生成日志等级[%s]成功\n" ${CFG[log_level]}
     else
-        ${PRINT} "生成日志等级[%s]失败\n" ${cfg[log_level]}
+        printf "生成日志等级[%s]失败\n" ${CFG[log_level]}
     fi
 }
 
 function help() {
     printf "请输入以下指令：\n"
-    for key in "${!msg[@]}"; do
-        printf "%-20s%s\n" $key ${msg[$key]}
+    for key in "${!MSG[@]}"; do
+        printf "%-20s%s\n" $key ${MSG[$key]}
     done
 }
 
-if [[ ${!msg[@]} =~ $1 ]]; then
+# 检查键是否在字典中
+check_key_in_dict() {
+    dict=$1
+    check=$2
+    for key in "${!dict[@]}"; do
+      if [[ ${check} == ${key} ]]; then
+          return 0
+      fi
+    done
+    return 1
+}
+
+if [[ $(check_key_in_dict ${MSG} $1) == 0 ]]; then
     cmd=$1
     args=${@:2}
     ${cmd} ${args}

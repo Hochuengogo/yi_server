@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# 作者
+AUTHOR="jiaoyinyi"
 # 游戏简称
 GAME_NAME="demo"
 # 游戏语言
@@ -27,7 +29,7 @@ MYSQL_USER="root"
 MYSQL_PASSWORD="root"
 
 # 网关host
-GATEWAY_HOST="localhost"
+GATEWAY_HOST="127.0.0.1"
 
 #编译参数
 MAKE_ARGS='[debug_info, {i, "include"}, {outdir, "ebin"}]'
