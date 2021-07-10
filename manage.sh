@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 
 # 获取根路径
-TARGET_FILE=`dirname $0`
-TARGET_FILE=`basename ${TARGET_FILE}`
-while [ -L "${TARGET_FILE}" ]
-do
-    TARGET_FILE=`readlink ${TARGET_FILE}`
-    cd `dirname ${TARGET_FILE}`
-    TARGET_FILE=`basename ${TARGET_FILE}`
-done
-PHYS_DIR=`pwd -P`
-ROOT=${PHYS_DIR}
+function get_root() {
+    target_file=`dirname $0`
+    target_file=`basename ${target_file}`
+    while [ -L "${target_file}" ]
+    do
+        target_file=`readlink ${target_file}`
+        cd `dirname ${target_file}`
+        target_file=`basename ${target_file}`
+    done
+    echo `pwd -P`
+}
 
 REBAR=rebar3
 ERL=erl
 PRINT=printf
 
 # 引用配置脚本
+ROOT=$(get_root)
 source ${ROOT}/setting.sh
 
 # 定义字典
@@ -37,7 +39,9 @@ cfg[gateway_host]=${GATEWAY_HOST}
 cfg[make_args]=${MAKE_ARGS}
 cfg[log_level]=${LOG_LEVEL}
 
-declare -A msg
+if [ ! $msg ]; then
+    declare -A msg
+fi
 
 # 获取依赖库
 msg[get_dep]="获取依赖库"
@@ -148,14 +152,13 @@ function install() {
   gateway_port=$(expr ${cfg[base_port]} + ${server_id})
   open_srv_timestamp=`date '+%s'`
   sed_str="s/{server_id}/${server_id}/g;s/{server_type}/${server_type}/g;s/{platform}/${cfg[platform]}/g;s/{mysql_host}/${cfg[mysql_host]}/g;s/{mysql_port}/${cfg[mysql_port]}/g;s/{mysql_user}/${cfg[mysql_user]}/g;s/{mysql_password}/${cfg[mysql_password]}/g;s/{mysql_db}/${mysql_db}/g;s/{gateway_host}/${cfg[gateway_host]}/g;s/{gateway_port}/${gateway_port}/g;s/{game_name}/${cfg[game_name]}/g;s/{open_srv_timestamp}/${open_srv_timestamp}/g;s/{language}/${cfg[game_lang]}/g;s/{version}/${cfg[version]}/g;s#{code_path}#${cfg[root]}#g;s/{cookie}/${cfg[cookie]}/g"
-#  echo ${sed_str}
   cat ${cfg[root]}/tpl/server.config.tpl | sed "${sed_str}" > ${server_path}/server.config
 
   ${PRINT} "安装服务器%s完成\n" ${server_name}
 }
 
 # 卸载服务器
-msg[uninstall]="卸载服务器 (uninstall server_type server_id)"
+msg[uninstall]="卸载服务器(uninstall:server_type:server_id)"
 function uninstall() {
     server_type=$1
     server_id=$2
@@ -215,7 +218,7 @@ function make() {
 }
 
 # 编译模块
-msg[make_mod]="编译模块 (make_mod mod1 mod2 mod3)"
+msg[make_mod]="编译模块(make_mod:mod1:mod2:mod3)"
 function make_mod() {
     ${PRINT} "开始编译模块\n"
     tmp_mods=$@
@@ -250,7 +253,7 @@ function make_mod() {
 }
 
 # 编译文件
-msg[make_file]="编译文件 (make_file file1 file2 file3)"
+msg[make_file]="编译文件(make_file:file1:file2:file3)"
 function make_file() {
     ${PRINT} "开始编译文件\n"
     tmp_files=$@
@@ -291,13 +294,13 @@ function clean() {
 }
 
 # 热更
-msg[update]="热更 (update server_type server_id)"
+msg[update]="热更(update:server_type:server_id)"
 function update() {
     ${PRINT} "未实现热更功能"
 }
 
 # 启动服务器
-msg[start]="启动服务器 (start server_type server_id)"
+msg[start]="启动服务器(start:server_type:server_id)"
 function start() {
     server_type=$1
     server_id=$2
@@ -316,7 +319,7 @@ function start() {
 }
 
 # 关闭服务器
-msg[stop]="关闭服务器 (stop server_type server_id)"
+msg[stop]="关闭服务器(stop:server_type:server_id)"
 function stop() {
     ${PRINT} "未实现关闭服务器功能"
 }
@@ -334,7 +337,10 @@ function gen_log_level() {
 }
 
 function help() {
-    ${PRINT} "帮助\n"
+    printf "请输入以下指令：\n"
+    for key in "${!msg[@]}"; do
+        printf "%-20s%s\n" $key ${msg[$key]}
+    done
 }
 
 if [[ ${!msg[@]} =~ $1 ]]; then
