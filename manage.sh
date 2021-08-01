@@ -315,6 +315,10 @@ function start() {
     local min_port=$((${CFG[base_port]} + 10000))
     local max_port=$((${min_port} + 100))
     if [[ -e ${server_path} ]] && [[ -e ${server_path}/server.config ]]; then
+        if [[ -n "$(screen -list | grep -E "[0-9]+\.${node_name}")" ]]; then
+            echo -e "$(color green "服务器")$(color sky_blue ${node_name})$(color green "已启动")"
+            return 0
+        fi
         local cmd="ulimit -S -n 10240 && erl -pa ${CFG[root]}/ebin -name ${node_name} -setcookie ${CFG[cookie]} -hidden -smp enable +P 1024000 +e 102400 +Q 65536 -kernel inet_dist_listen_min ${min_port} inet_dist_listen_max ${max_port} -s manage start"
         cd ${server_path} && screen -dmS ${node_name} && screen -x -S ${node_name} -p 0 -X stuff "${cmd}\n"
         if [[ $? -eq 0 ]]; then
@@ -325,6 +329,24 @@ function start() {
         return 1
     fi
     echo -e "$(color yellow "未安装服务器${node_name}")"
+    return 1
+}
+
+# 进入服务器控制台
+DOC[shell]="进入screen窗口(shell srv_type srv_id)"
+function shell() {
+    local srv_type=$1
+    local srv_id=$2
+    local server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
+    local server_path=${CFG[zone_path]}/${server_name}
+    local node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
+    if [[ -n "$(screen -list | grep -E "[0-9]+\.${node_name}")" ]]; then
+        echo -e "$(color green "请注意接管！！！")"
+        sleep 3
+        screen -r ${node_name}
+        return 0
+    fi
+    echo -e "$(color red "不存在服务器${node_name}控制台")"
     return 1
 }
 
@@ -450,6 +472,7 @@ function do_gen_mod() {
 
 # 帮助
 function help() {
+    declare -a DOC
     echo -e "$(color green "请输入以下指令：")"
     for key in "${!DOC[@]}"; do
         printf "%-25s%s\n" "$(color green "$key")" "$(color sky_blue "${DOC[$key]}")"
