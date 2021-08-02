@@ -315,7 +315,7 @@ function start() {
     local min_port=$((${CFG[base_port]} + 10000))
     local max_port=$((${min_port} + 100))
     if [[ -e ${server_path} ]] && [[ -e ${server_path}/server.config ]]; then
-        if [[ -n "$(screen -list | grep -E "[0-9]+\.${node_name}")" ]]; then
+        if has_screen ${node_name}; then
             echo -e "$(color green "服务器")$(color sky_blue ${node_name})$(color green "已启动")"
             return 0
         fi
@@ -340,7 +340,11 @@ function shell() {
     local server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
     local server_path=${CFG[zone_path]}/${server_name}
     local node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
-    if [[ -n "$(screen -list | grep -E "[0-9]+\.${node_name}")" ]]; then
+    if has_screen ${node_name}; then
+        if in_screen ${node_name}; then
+            echo -e "$(color green "已在控制台中！！！")"
+            return 0
+        fi
         echo -e "$(color green "请注意接管！！！")"
         sleep 3
         screen -r ${node_name}
@@ -360,12 +364,13 @@ function stop() {
     local node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
     local exec_node_name=exec_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]}
     erl -name ${exec_node_name} -setcookie ${CFG[cookie]} -noshell -eval "rpc:call('${node_name}',manage,stop,[])." -s init stop
-    if [[ $? -eq 0 ]]; then
-        echo -e "$(color green "关闭服务器")$(color sky_blue ${node_name})$(color green "成功")"
-        return 0
+    if [[ $? -ne 0 ]]; then
+        echo -e "$(color red "关闭服务器${node_name}失败")"
+        return 1
     fi
-    echo -e "$(color red "关闭服务器${node_name}失败")"
-    return 1
+    ps aux | grep ${node_name} | grep -v grep | awk '{print $2}' | xargs kill
+    echo -e "$(color green "关闭服务器")$(color sky_blue ${node_name})$(color green "成功")"
+    return 0
 }
 
 # 热更
@@ -472,9 +477,8 @@ function do_gen_mod() {
 
 # 帮助
 function help() {
-    declare -a DOC
     echo -e "$(color green "请输入以下指令：")"
-    for key in "${!DOC[@]}"; do
+    for key in $(echo "${!DOC[@]}" | tr " " "\n" | sort | tr "\n" " "); do
         printf "%-25s%s\n" "$(color green "$key")" "$(color sky_blue "${DOC[$key]}")"
     done
 }

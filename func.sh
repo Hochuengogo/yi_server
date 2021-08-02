@@ -93,6 +93,7 @@ function is_int() {
 }
 
 # 获取脚本真实路径，如果有链接，会取到源文件路径
+# get_real_path
 function get_real_path() {
     local tar_file=${BASH_SOURCE[0]}
     cd $(dirname $tar_file})
@@ -106,6 +107,21 @@ function get_real_path() {
 }
 
 # 获取脚本真实目录，如果有链接，会取到源文件目录
+# get_real_dir
 function get_real_dir() {
     echo $(dirname $(get_real_path))
+}
+
+# 是否有screen会话
+# has_screen xxx
+function has_screen() {
+    [[ -n "$(screen -ls | grep -E "[0-9]+\.$1")" ]]
+    return $?
+}
+
+# 是否在screen会话中
+# in_screen xxx
+function in_screen() {
+    [[ -n "$(echo $STY | grep -E "[0-9]+\.$1")" ]]
+    return $?
 }
