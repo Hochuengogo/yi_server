@@ -30,6 +30,7 @@
     , async_apply/4
     , handle_async_timeout/1
     , handle_async_return/2
+    , apply/1
 ]).
 
 %% @doc 获取进程字典值
@@ -169,3 +170,12 @@ handle_async_return(Idx, Ret) ->
         _ ->
             skip
     end.
+
+%% @doc 执行方法
+-spec apply(mfa()) -> any().
+apply({undefined, F, A}) ->
+    erlang:apply(F, A);
+apply({F, A}) ->
+    erlang:apply(F, A);
+apply({M, F, A}) ->
+    erlang:apply(M, F, A).

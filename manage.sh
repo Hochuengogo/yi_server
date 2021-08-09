@@ -157,8 +157,8 @@ function install() {
     mkdir ${server_path}/log
     local gateway_port=$((${CFG[base_port]} + ${srv_id}))
     local open_srv_timestamp=$(date '+%s')
-    local sed_str="s/{srv_id}/${srv_id}/g;s/{srv_type}/${srv_type}/g;s/{platform}/${CFG[platform]}/g;s/{mysql_host}/${CFG[mysql_host]}/g;s/{mysql_port}/${CFG[mysql_port]}/g;s/{mysql_user}/${CFG[mysql_user]}/g;s/{mysql_password}/${CFG[mysql_password]}/g;s/{mysql_db}/${mysql_db}/g;s/{gateway_host}/${CFG[gateway_host]}/g;s/{gateway_port}/${gateway_port}/g;s/{game_name}/${CFG[game_name]}/g;s/{open_srv_timestamp}/${open_srv_timestamp}/g;s/{language}/${CFG[game_lang]}/g;s/{version}/${CFG[version]}/g;s#{code_path}#${CFG[root]}#g;s/{cookie}/${CFG[cookie]}/g"
-    cat ${CFG[root]}/tpl/server.config.tpl | sed "${sed_str}" >${server_path}/server.config
+    local sed_str="s/{srv_id}/${srv_id}/g;s/{srv_type}/${srv_type}/g;s/{platform}/${CFG[platform]}/g;s/{mysql_host}/${CFG[mysql_host]}/g;s/{mysql_port}/${CFG[mysql_port]}/g;s/{mysql_user}/${CFG[mysql_user]}/g;s/{mysql_password}/${CFG[mysql_password]}/g;s/{mysql_db}/${mysql_db}/g;s/{gateway_host}/${CFG[gateway_host]}/g;s/{gateway_port}/${gateway_port}/g;s/{game_name}/${CFG[game_name]}/g;s/{open_srv_timestamp}/${open_srv_timestamp}/g;s/{language}/${CFG[game_lang]}/g;s/{version}/${CFG[version]}/g;s#{code_path}#${CFG[root]}#g;s/{cookie}/${CFG[cookie]}/g;"
+    cat ${CFG[root]}/tpl/server.config.tpl | sed -e "${sed_str}" >${server_path}/server.config
 
     echo -e "$(color green "安装服务器")$(color sky_blue ${server_name})$(color green "完成")"
 }
@@ -449,8 +449,8 @@ function gen_mod() {
     fi
     local mod_name=$(check_empty "请输入模块名:" $2)
     local desc=$(check_empty "请输入描述:" $3)
-    local mod_dict=$(check_empty "请输入模块目录:" $4)
-    do_gen_mod ${mod_type} ${mod_name} ${desc} ${mod_dict}
+    local mod_dir=$(check_empty "请输入模块目录:" $4)
+    do_gen_mod ${mod_type} ${mod_name} ${desc} ${mod_dir}
 }
 
 # 处理生成模块
@@ -458,21 +458,43 @@ function do_gen_mod() {
     local mod_type=$1
     local mod_name=$2
     local desc=$3
-    local mod_dict=$4
+    local mod_dir=$4
     local base_mods=("erl" "gs" "gf" "rpc" "ver")
     local other_mods=("mod" "mgr" "rank")
     local many_mods=("worker" "match")
 
+    local author=${CFG[author]}
+    local year=$(date "+%Y")
+    local create_time=$(date "+%Y-%m-%d %H:%M:%S")
+    local tpl_file=${CFG[root]}/tpl/${mod_type}.erl.tpl
+    local tar_dir=${CFG[root]}/src/${mod_dir}
     if member ${mod_type} "${base_mods[@]}"; then
-        echo "基础模块"
+        mod=$mod_name
     elif member ${mod_type} "${other_mods[@]}"; then
-        echo "其他模块"
+        echo "其他模块" # 未实现
+        return 1
     elif member ${mod_type} "${many_mods[@]}"; then
-        echo "多个模块"
+        echo "多个模块" # 未实现
+        return 1
     else
         echo "没有该模块类型"
         return 1
     fi
+    if [[ ! -e $tar_dir ]]; then
+        mkdir $tar_dir
+    fi
+    tar_file=${tar_dir}/${mod}.erl
+    if [[ -e $tar_file ]]; then
+        echo -e "$(color red "[src/${mod_dir}/${mod}.erl]模块已存在")"
+        return 1
+    fi
+    sed_str="s/{author}/${author}/g;s/{year}/${year}/g;s/{desc}/${desc}/g;s/{create_time}/${create_time}/g;s/{mod}/${mod}/g;"
+    cat $tpl_file | sed -e "${sed_str}" >$tar_file
+    if [ $? -ne 0 ]; then
+        echo -e "$(color red "[src/${mod_dir}/${mod}.erl]模块创建失败")"
+        return 1
+    fi
+    echo -e "$(color green "[src/${mod_dir}/${mod}.erl]模块创建成功")"
 }
 
 # 帮助
