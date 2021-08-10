@@ -112,7 +112,7 @@ do_handle_call({apply, {F, A}}, _From, State) ->
     end;
 
 do_handle_call(_Request, _From, State) ->
-    {reply, ok, State}.
+    {reply, {error, bad_request}, State}.
 
 do_handle_cast(_Request, State) ->
     {noreply, State}.
@@ -122,6 +122,8 @@ do_handle_info({apply, {M, F, A}}, State) ->
         ok ->
             {noreply, State};
         {ok, NewState} ->
+            {noreply, NewState};
+        {noreply, NewState} ->
             {noreply, NewState};
         _Err ->
             ?error("异步执行~w:~w:~w错误，State:~w，Reason:~w", [M, F, A, State, _Err]),

@@ -36,6 +36,12 @@
 %% call封装
 -define(scall(Server, Call),
     case catch gen_server:call(Server, Call, 10000) of
+        {'EXIT', {timeout, _Err}} ->
+            {error, timeout};
+        {'EXIT', {{nodedown, Node}, _Err}} ->
+            {error, {nodedown, Node}};
+        {'EXIT', {noproc, _Err}} ->
+            {error, noproc};
         {'EXIT', _Err} ->
             {error, _Err};
         Res ->
@@ -44,6 +50,12 @@
 ).
 -define(fcall(Server, Call),
     case catch gen_fsm:sync_send_all_state_event(Server, Call, 10000) of
+        {'EXIT', {timeout, _Err}} ->
+            {error, timeout};
+        {'EXIT', {{nodedown, Node}, _Err}} ->
+            {error, {nodedown, Node}};
+        {'EXIT', {noproc, _Err}} ->
+            {error, noproc};
         {'EXIT', _Err} ->
             {error, _Err};
         Res ->

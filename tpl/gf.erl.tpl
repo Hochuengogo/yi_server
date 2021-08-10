@@ -68,7 +68,7 @@ handle_sync_event(Request, From, StateName, State) ->
 
 handle_event(Request, StateName, State) ->
     case catch do_handle_event(Request, StateName, State) of
-        {noreply, NewStateName, NewState} ->
+        {next_state, NewStateName, NewState} ->
             continue(NewStateName, NewState);
         _Err ->
             ?error("handle_event错误，消息:~w，StateName:~w，State:~w，Reason:~w", [Request, StateName, State, _Err]),
@@ -84,13 +84,13 @@ handle_info(Info, StateName, State) ->
             continue(StateName, State)
     end.
 
-terminate(Reason, _State, _Data) ->
-    ?info("[~w]开始关闭，原因：~w", [?MODULE, Reason]),
+terminate(Reason, StateName, _State) ->
+    ?info("[~w]开始关闭，StateName：~w，原因：~w", [?MODULE, StateName, Reason]),
     ?info("[~w]关闭完成", [?MODULE]),
     ok.
 
-code_change(_OldVsn, State, _Data, _Extra) ->
-    {ok, State}.
+code_change(_OldVsn, StateName, State, _Extra) ->
+    {ok, StateName, State}.
 
 do_handle_sync_event({apply, {M, F, A}}, _From, StateName, State) ->
     case catch util:apply({M, F, [StateName, State | A]}) of
@@ -122,7 +122,7 @@ do_handle_sync_event({apply, {F, A}}, _From, StateName, State) ->
     end;
 
 do_handle_sync_event(_Request, _From, StateName, State) ->
-    {reply, ok, StateName, State}.
+    {reply, {error, bad_request}, StateName, State}.
 
 do_handle_event(_Request, StateName, State) ->
     {next_state, StateName, State}.
@@ -158,18 +158,13 @@ do_handle_info(_Info, StateName, State) ->
 idle(Info, State) ->
     handle_state(Info, idle, State).
 
-handle_state(timeout, StateName, State) ->
-    case catch do_handle_state(timeout, StateName, State) of
-        {next_state, NewStateName, NewState} ->
-            continue(NewStateName, NewState);
-        _Err ->
-            ?error("handle_state错误，消息:~w，StateName:~w，State:~w，Reason:~w", [timeout, StateName, State, _Err]),
-            continue(StateName, State#state{state_end_time = time_util:timestamp(ms) + ?hour_ms})
-    end;
 handle_state(Info, StateName, State) ->
     case catch do_handle_state(Info, StateName, State) of
         {next_state, NewStateName, NewState} ->
             continue(NewStateName, NewState);
+        _Err when Info =:= timeout ->
+            ?error("handle_state错误，消息:~w，StateName:~w，State:~w，Reason:~w", [Info, StateName, State, _Err]),
+            continue(StateName, State#state{state_end_time = time_util:timestamp(ms) + ?hour_ms});
         _Err ->
             ?error("handle_state错误，消息:~w，StateName:~w，State:~w，Reason:~w", [Info, StateName, State, _Err]),
             continue(StateName, State)
