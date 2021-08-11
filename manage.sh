@@ -8,7 +8,7 @@ else
 fi
 
 ROOT=$(get_real_dir)
-echo -e "项目路径:$(color green $ROOT)"
+echo -e "server项目路径:$(color green $ROOT)"
 
 sub_shells=("setting.sh")
 for sub_shell in ${sub_shells[@]}; do

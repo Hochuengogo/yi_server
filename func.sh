@@ -95,7 +95,8 @@ function is_int() {
 # 获取脚本真实路径，如果有链接，会取到源文件路径
 # get_real_path
 function get_real_path() {
-    local tar_file=${BASH_SOURCE[0]}
+#    local tar_file=${BASH_SOURCE[0]}
+    local tar_file=$0
     cd $(dirname $tar_file})
     tar_file=$(basename $tar_file)
     while [ -L "$tar_file" ]; do
