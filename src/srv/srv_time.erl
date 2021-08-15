@@ -21,8 +21,6 @@
 -include("common.hrl").
 -include("logs.hrl").
 
--define(SERVER, ?MODULE).
-
 -record(state, {}).
 
 %% 0点触发的事件 {M,F,A}
@@ -76,7 +74,7 @@ set_datetime_cache(DateTime, Timestamp) ->
 %%%===================================================================
 
 start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 init([]) ->
     ?info(?start_begin),
@@ -87,7 +85,7 @@ init([]) ->
     ets:new(srv_datetime_cache, [named_table, set, public, {keypos, 1}]),
     load_time_cache(),
     {NextHour, NextHourDiff} = get_next_hour_info(),
-    erlang:send_after(NextHourDiff * 1000, self(), {next_hour, NextHour}),
+    util:start_timer(NextHourDiff * 1000, self(), {next_hour, NextHour}),
     ?info(?start_end),
     {ok, #state{}}.
 
@@ -115,43 +113,45 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% 0点更新
-do_handle_info({next_hour, 0}, State) ->
+do_handle_info({timeout, _Ref, {next_hour, 0}}, State) ->
     ?info("0点更新"),
     {NextHour, NextHourDiff} = get_next_hour_info(),
-    erlang:send_after(NextHourDiff * 1000, self(), {next_hour, NextHour}),
+    util:start_timer(NextHourDiff * 1000, self(), {next_hour, NextHour}),
     load_time_cache(),
     Zero = get_time_cache(zero),
     case Zero > srv_config:get(last_update_zero, 0) of
         true ->
             zero_flush(zero_fire_events(srv_lib:server_type()), get_time_cache(week_day)),
+            srv_config:save(last_update_zero, Zero),
             ?info("0点更新执行完成");
         _ ->
             ?error("0点更新执行异常，0点时间戳：~w", [Zero])
     end,
-    srv_config:save(last_update_zero, Zero),
     {noreply, State};
 
 %% 5点更新
-do_handle_info({next_hour, 5}, State) ->
+do_handle_info({timeout, _Ref, {next_hour, 5}}, State) ->
     ?info("5点更新"),
     {NextHour, NextHourDiff} = get_next_hour_info(),
-    erlang:send_after(NextHourDiff * 1000, self(), {next_hour, NextHour}),
+    util:start_timer(NextHourDiff * 1000, self(), {next_hour, NextHour}),
+    load_time_cache(),
     DayFive = get_time_cache(day_five),
     case DayFive > srv_config:get(last_update_day_five, 0) of
         true ->
             five_flush(five_fire_events(srv_lib:server_type()), get_time_cache(week_day)),
+            srv_config:save(last_update_day_five, DayFive),
             ?info("5点更新执行完成");
         _ ->
             ?error("5点更新执行异常，5点时间戳：~w", [DayFive])
     end,
-    srv_config:save(last_update_day_five, DayFive),
     {noreply, State};
 
 %% 其他整点
-do_handle_info({next_hour, Hour}, State) ->
+do_handle_info({timeout, _Ref, {next_hour, Hour}}, State) ->
     ?info("~w点更新", [Hour]),
     {NextHour, NextHourDiff} = get_next_hour_info(),
-    erlang:send_after(NextHourDiff * 1000, self(), {next_hour, NextHour}),
+    util:start_timer(NextHourDiff * 1000, self(), {next_hour, NextHour}),
+    load_time_cache(),
     {noreply, State};
 
 do_handle_info(_Info, State) ->

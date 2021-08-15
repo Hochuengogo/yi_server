@@ -32,17 +32,17 @@ cast(Request) ->
 info(Info) ->
     ?MODULE ! Info.
 
-apply(sync, MFA = {M, F, A}) ->
+apply(sync, MFA = {_M, _F, _A}) ->
     call({apply, MFA});
-apply(sync, FA = {F, A}) ->
+apply(sync, FA = {_F, _A}) ->
     call({apply, FA});
-apply(async, MFA = {M, F, A}) ->
+apply(async, MFA = {_M, _F, _A}) ->
     info({apply, MFA});
-apply(async, FA = {F, A}) ->
+apply(async, FA = {_F, _A}) ->
     info({apply, FA}).
 
 start_link() ->
-    gen_server:start_link(?MODULE, [], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 init([]) ->
     ?info("[~w]开始启动", [?MODULE]),

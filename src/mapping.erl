@@ -20,12 +20,12 @@ do(Code) ->
     case do_do(Code div 100) of
         {ok, ProtoMod, RpcMod, IsLogin} ->
             {ok, ProtoMod, RpcMod, IsLogin};
-        {error, _Err} ->
+        {error, Err} ->
             ?error("协议号映射错误, 协议号:~w", [Code]),
-            {error, _Err}
+            {error, Err}
     end.
 
 do_do(100) ->
     {ok, proto_100, gateway_rpc, false};
-do_do(_Code) ->
-    {error, {bad_mapping, _Code}}.
+do_do(Code) ->
+    {error, {bad_mapping, Code}}.

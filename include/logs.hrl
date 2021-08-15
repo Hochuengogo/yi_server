@@ -31,6 +31,6 @@
 -define(gate_debug(Format, Args), ?debug(Format, Args)).
 -define(gate_debug(Str), ?debug(Str)).
 -else.
--define(gate_debug(Format, Args), ok).
--define(gate_debug(Str), ok).
+-define(gate_debug(_Format, _Args), ok).
+-define(gate_debug(_Str), ok).
 -endif.

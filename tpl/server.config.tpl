@@ -43,7 +43,8 @@
     {delay_send, true},
     {send_timeout, 30000},
     {send_timeout_close, true},
-    {exit_on_close, false}
+    {exit_on_close, false},
+    {packet, 0}
 ]}. %% 网关选项
 {acceptor_num, 30}. %% 接收器数量
-
+{gateway_num, 5000}. %% 网关数量

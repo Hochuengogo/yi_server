@@ -320,7 +320,7 @@ function start() {
             return 0
         fi
         local cmd="ulimit -S -n 10240 && erl -pa ${CFG[root]}/ebin -name ${node_name} -setcookie ${CFG[cookie]} -hidden -smp enable +P 1024000 +e 102400 +Q 65536 -kernel inet_dist_listen_min ${min_port} inet_dist_listen_max ${max_port} -s manage start"
-        cd ${server_path} && screen -dmS ${node_name} && screen -x -S ${node_name} -p 0 -X stuff "${cmd}\n"
+        cd ${server_path} && screen -L -dmS ${node_name} && screen -x -S ${node_name} -p 0 -X stuff "${cmd}\n"
         if [[ $? -eq 0 ]]; then
             echo -e "$(color green "启动服务器")$(color sky_blue ${node_name})$(color green "成功")"
             return 0

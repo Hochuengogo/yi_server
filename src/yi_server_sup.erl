@@ -25,17 +25,9 @@ init([]) ->
         id => worker_sup,
         start => {worker_sup, start_link, []},
         restart => permanent,
-        shutdown => 5000,
+        shutdown => infinity,
         type => supervisor,
         modules => [worker_sup]
     },
-    SrvConfig = #{
-        id => srv_config,
-        start => {srv_config, start_link, []},
-        restart => permanent,
-        shutdown => 5000,
-        type => worker,
-        modules => [config]
-    },
-    ChildSpecs = [SrvConfig, WorkerSup],
+    ChildSpecs = [WorkerSup],
     {ok, {SupFlags, ChildSpecs}}.

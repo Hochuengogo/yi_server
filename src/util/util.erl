@@ -12,25 +12,15 @@
 %% API
 -export([
     get/2
-    , set_timer/3
-    , set_timer/4
-    , set_ms_timer/3
-    , set_ms_timer/4
-    , unset_timer/1
-    , have_timer/1
-    , gc/0
-    , gc/1
-    , rand/1
-    , rand/2
-    , compress/1
-    , uncompress/1
+    , set_timer/3, set_timer/4, set_ms_timer/3, set_ms_timer/4, unset_timer/1, have_timer/1
+    , gc/0, gc/1
+    , rand/1, rand/2
+    , compress/1, uncompress/1
     , check_cd/2
-    , term_to_string/1
-    , string_to_term/1
-    , async_apply/4
-    , handle_async_timeout/1
-    , handle_async_return/2
+    , term_to_string/1, string_to_term/1
+    , async_apply/4, handle_async_timeout/1, handle_async_return/2
     , apply/1
+    , start_timer/3, cancel_timer/1
 ]).
 
 %% @doc 获取进程字典值
@@ -48,39 +38,51 @@ get(Key, Default) ->
 set_timer(Name, Secs, Msg) ->
     set_ms_timer(Name, Secs * 1000, self(), Msg).
 -spec set_timer(term(), pos_integer(), pid(), term()) -> term().
-set_timer(Name, Secs, To, Msg) ->
-    set_ms_timer(Name, Secs * 1000, To, Msg).
+set_timer(Name, Secs, Dest, Msg) ->
+    set_ms_timer(Name, Secs * 1000, Dest, Msg).
 -spec set_ms_timer(term(), pos_integer(), term()) -> term().
 set_ms_timer(Name, MSecs, Msg) ->
     set_ms_timer(Name, MSecs, self(), Msg).
 -spec set_ms_timer(term(), pos_integer(), pid(), term()) -> term().
-set_ms_timer(Name, MSecs, To, Msg) ->
-    Timers = ?MODULE:get('@timers', []),
-    case lists:keyfind(Name, 1, Timers) of
-        {Name, Ref} ->
-            catch erlang:cancel_timer(Ref);
-        _ ->
-            ok
-    end,
-    NewRef = erlang:send_after(MSecs, To, Msg),
-    put('@timers', lists:keystore(Name, 1, Timers, {Name, NewRef})).
+set_ms_timer(Name, MSecs, Dest, Msg) ->
+    case get('@timers') of
+        undefined ->
+            put('@timers', {Name, start_timer(MSecs, Dest, Msg)});
+        Timers ->
+            case lists:keyfind(Name, 1, Timers) of
+                {_, Ref} ->
+                    cancel_timer(Ref),
+                    put('@timers', lists:keyreplace(Name, 1, Timers, {Name, start_timer(MSecs, Dest, Msg)}));
+                _ ->
+                    put('@timers', [{Name, start_timer(MSecs, Dest, Msg)} | Timers])
+            end
+    end.
 
 %% @doc 取消设置定时器
 -spec unset_timer(term()) -> term().
 unset_timer(Name) ->
-    Timers = ?MODULE:get('@timers', []),
-    case lists:keyfind(Name, 1, Timers) of
-        {Name, Ref} ->
-            catch erlang:cancel_timer(Ref),
-            put('@timers', lists:keydelete(Name, 1, Timers));
-        _ ->
-            ok
+    case get('@timers') of
+        undefined ->
+            ok;
+        Timers ->
+            case lists:keyfind(Name, 1, Timers) of
+                {_, Ref} ->
+                    cancel_timer(Ref),
+                    put('@timers', lists:keydelete(Name, 1, Timers));
+                _ ->
+                    ok
+            end
     end.
 
 %% @doc 是否有某个定时器
 -spec have_timer(term()) -> boolean().
 have_timer(Name) ->
-    lists:keymember(Name, 1, ?MODULE:get('@timers', [])).
+    case get('@timers') of
+        undefined ->
+            false;
+        Timers ->
+            lists:keymember(Name, 1, Timers)
+    end.
 
 %% @doc 手动gc
 -spec gc() -> boolean().
@@ -88,12 +90,7 @@ gc() ->
     gc(self()).
 -spec gc(pid()) -> boolean().
 gc(Pid) ->
-    case erlang:process_info(Pid, status) of
-        {status, waiting} ->
-            erlang:garbage_collect(Pid);
-        _ ->
-            false
-    end.
+    erlang:garbage_collect(Pid).
 
 %% @doc 压缩
 -spec compress(binary()) -> binary().
@@ -179,3 +176,24 @@ apply({F, A}) ->
     erlang:apply(F, A);
 apply({M, F, A}) ->
     erlang:apply(M, F, A).
+
+%% @doc 启动定时器 超时消息格式{timeout, Ref, Msg}
+-spec start_timer(pos_integer(), pid(), term()) -> reference().
+start_timer(Time, Dest, Msg) ->
+    erlang:start_timer(Time, Dest, Msg).
+
+%% @doc 取消定时器
+-spec cancel_timer(reference()) -> pos_integer() | false.
+cancel_timer(Ref) when is_reference(Ref) ->
+    case erlang:cancel_timer(Ref) of
+        false ->
+            receive {timeout, Ref, _Msg} ->
+                0
+            after 0 ->
+                false
+            end;
+        Time ->
+            Time
+    end;
+cancel_timer(_Ref) ->
+    false.

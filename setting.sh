@@ -32,7 +32,7 @@ MYSQL_PASSWORD="root"
 GATEWAY_HOST="127.0.0.1"
 
 #编译参数
-MAKE_ARGS='[debug_info, {i, "include"}, {outdir, "ebin"}]'
+MAKE_ARGS='[debug_info, {i, "include"}, {outdir, "ebin"}, {d, gate_debug}]'
 
 # 日志等级
 LOG_LEVEL="debug" # debug | info | warn | error

@@ -23,7 +23,7 @@
 
 %% 要启动的进程
 -define(start_zone_ids, [
-    db, srv_code, srv_time, gateway_sup, gateway_acceptor_sup, gateway_worker_sup, gateway_listener
+    db, srv_code, srv_time, gateway_sup, gateway_mgr, gateway_acceptor_sup, gateway_listener
 ]).
 
 -define(start_center_ids, [
@@ -146,29 +146,29 @@ get_service(gateway_sup) ->
         id = gateway_sup,
         start = {gateway_sup, start_link, []},
         type = supervisor,
+        shutdown = infinity,
         desc = "网关总supervisor"
+    };
+get_service(gateway_mgr) ->
+    #service{
+        id = gateway_mgr,
+        start = {gateway_mgr, start_link, []},
+        depend_on = gateway_sup,
+        desc = "网关管理进程"
     };
 get_service(gateway_acceptor_sup) ->
     #service{
         id = gateway_acceptor_sup,
         start = {gateway_acceptor_sup, start_link, []},
         type = supervisor,
+        shutdown = infinity,
         depend_on = gateway_sup,
         desc = "网关接收进程supervisor"
-    };
-get_service(gateway_worker_sup) ->
-    #service{
-        id = gateway_worker_sup,
-        start = {gateway_worker_sup, start_link, []},
-        type = supervisor,
-        depend_on = gateway_sup,
-        desc = "网关工作进程supervisor"
     };
 get_service(gateway_listener) ->
     #service{
         id = gateway_listener,
         start = {gateway_listener, start_link, []},
-        type = worker,
         depend_on = gateway_sup,
         desc = "网关监听进程"
     }.

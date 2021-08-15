@@ -119,7 +119,7 @@ do_load() ->
     do_load(Terms).
 do_load([]) ->
     ok;
-do_load([{Key, Val} | Terms]) when Key =:= version orelse Key =:= open_srv_timestamp ->
+do_load([{Key, Val} | Terms]) when Key =:= version orelse Key =:= open_srv_timestamp -> %% 这两个要手动设置
     case ets:member(srv_config, Key) of
         false ->
             save(Key, Val);

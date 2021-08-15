@@ -16,8 +16,6 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
     code_change/3]).
 
--define(SERVER, ?MODULE).
-
 -record(state, {}).
 
 -include("common.hrl").
@@ -29,19 +27,19 @@
 %% @doc 热更新
 -spec hot_update() -> ok.
 hot_update() ->
-    info(hot_update).
+    call(hot_update).
 
 info(Info) ->
-    ?SERVER ! Info.
+    ?MODULE ! Info.
 
 cast(Info) ->
-    gen_server:cast(?SERVER, Info).
+    gen_server:cast(?MODULE, Info).
 
 call(Info) ->
-    ?scall(?SERVER, Info).
+    ?scall(?MODULE, Info).
 
 start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 init([]) ->
     ?info(?start_begin),
@@ -51,17 +49,14 @@ init([]) ->
     ?info(?start_end),
     {ok, #state{}}.
 
-handle_call(_Request, _From, State) ->
+handle_call(hot_update, _From, State) ->
+    ?info("开始热更新服务器代码"),
+    update(),
+    ?info("热更新服务器代码完成"),
     {reply, ok, State}.
 
 handle_cast(_Request, State) ->
     {noreply, State}.
-
-handle_info(hot_update, State) ->
-    io:format("开始热更新服务器代码\n"),
-    do_load(),
-    io:format("热更新服务器代码完成\n"),
-    {noreply, State};
 
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -94,15 +89,15 @@ init_srv_code([FileName | EbinFileNames], EbinPath) ->
     end,
     init_srv_code(EbinFileNames, EbinPath).
 
-do_load() ->
+update() ->
     {EbinPath, EbinFileNames} = get_srv_ebin_info(),
 %%    ?debug("ebin路径：~ts，ebin路径下的文件：~w", [EbinPath, EbinFileNames]),
-    do_load(EbinFileNames, EbinPath),
+    do_update(EbinFileNames, EbinPath),
     ok.
 
-do_load([], _EbinPath) ->
+do_update([], _EbinPath) ->
     ok;
-do_load([FileName | EbinFileNames], EbinPath) ->
+do_update([FileName | EbinFileNames], EbinPath) ->
     BeamPath = filename:join(EbinPath, FileName),
     case beam_md5_hex_string(BeamPath) of
         {ok, Mod, Md5HexString} ->
@@ -116,26 +111,26 @@ do_load([FileName | EbinFileNames], EbinPath) ->
                             case code:load_file(Mod) of
                                 {module, Mod} ->
                                     ets:insert(srv_code, {Mod, Md5HexString}),
-                                    io:format("热更新服务器代码成功[~w]\n", [Mod]);
+                                    ?info("热更新服务器代码成功[~w]", [Mod]);
                                 {error, Reason} ->
-                                    io:format("热更新服务器失败[~w]，原因：~w\n", [Mod, Reason])
+                                    ?error("热更新服务器失败[~w]，原因：~w", [Mod, Reason])
                             end;
                         false ->
                             case code:load_file(Mod) of
                                 {module, Mod} ->
                                     ets:insert(srv_code, {Mod, Md5HexString}),
-                                    io:format("热更新服务器代码成功[~w]\n", [Mod]);
+                                    ?info("热更新服务器代码成功[~w]", [Mod]);
                                 {error, Reason} ->
-                                    io:format("热更新服务器失败[~w]，原因：~w\n", [Mod, Reason])
+                                    ?info("热更新服务器失败[~w]，原因：~w", [Mod, Reason])
                             end;
                         _ ->
-                            io:format("热更新服务器失败[~w]，原因：~w\n", [Mod, same_mod_loaded])
+                            ?error("热更新服务器失败[~w]，原因：~w", [Mod, same_mod_loaded])
                     end
             end;
         _ ->
             skip
     end,
-    do_load(EbinFileNames, EbinPath).
+    do_update(EbinFileNames, EbinPath).
 
 %% 获取服务器ebin信息
 get_srv_ebin_info() ->

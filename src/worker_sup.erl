@@ -23,4 +23,17 @@ start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-    {ok, {{one_for_one, 10, 10}, []}}.
+    SupFlags = #{
+        strategy => one_for_one,
+        intensity => 10,
+        period => 10},
+    SrvConfig = #{
+        id => srv_config,
+        start => {srv_config, start_link, []},
+        restart => permanent,
+        shutdown => 10000,
+        type => worker,
+        modules => [srv_config]
+    },
+    ChildSpecs = [SrvConfig],
+    {ok, {SupFlags, ChildSpecs}}.
