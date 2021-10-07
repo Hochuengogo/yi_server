@@ -23,11 +23,11 @@
 
 %% 要启动的进程
 -define(start_zone_ids, [
-    db, srv_code, srv_time, role_data, role_query, gateway_sup, gateway_mgr, gateway_acceptor_sup, gateway_listener
+    db, srv_code, srv_time, role_data, role_query, cluster_mgr, gateway_sup, gateway_mgr, gateway_acceptor_sup, gateway_listener
 ]).
 
 -define(start_center_ids, [
-    db, srv_code, srv_time
+    db, srv_code, srv_time, c_cluster_mgr
 ]).
 
 %% @doc 启动系统
@@ -183,4 +183,16 @@ get_service(role_query) ->
         id = role_query,
         start = {role_query, start_link, []},
         desc = "角色查询进程"
+    };
+get_service(cluster_mgr) ->
+    #service{
+        id = cluster_mgr,
+        start = {cluster_mgr, start_link, []},
+        desc = "游戏服跨服管理进程"
+    };
+get_service(c_cluster_mgr) ->
+    #service{
+        id = c_cluster_mgr,
+        start = {c_cluster_mgr, start_link, []},
+        desc = "中央服跨服管理进程"
     }.

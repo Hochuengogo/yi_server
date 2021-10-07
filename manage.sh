@@ -103,12 +103,12 @@ function cp_dep() {
 # 安装服务器
 DOC[install]="安装服务器(install srv_type srv_id)"
 function install() {
-    srv_type=$(check_empty "请输入服务器类型(zone|center):", $1)
+    srv_type=$(check_empty "请输入服务器类型(zone|center):" $1)
     if [[ ${srv_type} != zone ]] && [[ ${srv_type} != center ]]; then
         echo -e "$(color yellow "服务器类型只能为zone或center")"
         return 1
     fi
-    srv_id=$(check_empty "请输入服务器ID(非负整数):", $2)
+    srv_id=$(check_empty "请输入服务器ID(非负整数):" $2)
     if ! is_int ${srv_id} || [[ ${srv_id} -lt 0 ]]; then
         echo -e "$(color yellow "非法服务器ID")"
         return 1
