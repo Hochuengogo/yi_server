@@ -156,31 +156,31 @@ keysort(Pos, List, desc) ->
 -spec add_sort(term(), list(), asc | desc) -> list().
 add_sort(I, [], _Flag) ->
     [I];
-add_sort(I, List, Flag) when is_list(List) andalso (Flag == asc orelse Flag == desc) ->
+add_sort(I, List, Flag) when is_list(List) andalso (Flag =:= asc orelse Flag =:= desc) ->
     do_add_sort(I, List, Flag, []).
 do_add_sort(I, [], _Flag, Acc) ->
     lists:reverse([I | Acc]);
-do_add_sort(I, [H | List], Flag, Acc) when I < H andalso Flag == asc ->
+do_add_sort(I, [H | List], asc, Acc) when I < H ->
     lists:reverse([H, I | Acc]) ++ List;
-do_add_sort(I, [H | List], Flag, Acc) when I > H andalso Flag == desc ->
+do_add_sort(I, [H | List], desc, Acc) when I > H ->
     lists:reverse([H, I | Acc]) ++ List;
 do_add_sort(I, [H | List], Flag, Acc) ->
     do_add_sort(I, List, Flag, [H | Acc]).
 
 %% @doc 在有序的列表中添加一项
 -spec add_keysort(term(), list(), list()) -> list().
-add_keysort(I, [], _PosList) ->
+add_keysort(_PosList, I, []) ->
     I;
-add_keysort(I, List, PosList) ->
-    do_add_keysort(I, List, PosList, []).
-do_add_keysort(I, [], _PosList, Acc) ->
+add_keysort(PosList, I, List) ->
+    do_add_keysort(PosList, I, List, []).
+do_add_keysort(_PosList, I, [], Acc) ->
     lists:reverse([I | Acc]);
-do_add_keysort(I, [H | List], PosList, Acc) ->
+do_add_keysort(PosList, I, [H | List], Acc) ->
     case compare(I, H, PosList) of
         true ->
             lists:reverse([H, I | Acc]) ++ List;
         _ ->
-            do_add_sort(I, List, PosList, [H | Acc])
+            do_add_keysort(PosList, I, List, [H | Acc])
     end.
 
 %% @doc 按多个键排序一个列表

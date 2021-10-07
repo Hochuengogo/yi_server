@@ -8,6 +8,9 @@
 %%%-------------------------------------------------------------------
 -author("huangzaoyi").
 
+-ifndef(trigger_hrl).
+-define(trigger_hrl, 1).
+
 %% 触发器结构
 -record(s_trigger, {
     triggers = []      %% 触发器列表 [{event, [#trigger{}]}]
@@ -20,3 +23,5 @@
     ,event             %% 事件
     ,callback          %% 回调方法 {m,f,a}
 }).
+
+-endif.

@@ -31,6 +31,8 @@
 -include("common.hrl").
 -include("logs.hrl").
 -include("role.hrl").
+-include("trigger.hrl").
+-include("stimer.hrl").
 
 -record(state, {queue}).
 -define(role_data_num, 5).
@@ -67,6 +69,8 @@ init_role(#role_base{rid = RId, srv_id = SrvId, account = Account, name = Name, 
         , reg_package_version = RegPackageVersion
         , package_version = PackageVersion
         , platform = Platform
+        , s_trigger = #s_trigger{}
+        , s_timer = #s_timer{}
     }.
 
 %% @doc 加载角色数据
@@ -78,7 +82,7 @@ load_role(RoleId) ->
                 {ok, Data} ->
                     case ver:parse(Data, role_ver) of
                         {ok, Role = #role{}} ->
-                            {ok, normal, Role};
+                            {ok, normal, Role#role{s_trigger = #s_trigger{}, s_timer = #s_timer{}}};
                         false ->
                             {error, data_ver_error}
                     end;

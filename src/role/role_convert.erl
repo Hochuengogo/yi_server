@@ -25,6 +25,8 @@ do(save_role, Role = #role{}) ->
         Role#role{
             pid = undefined
             , m_gateway = undefined
+            , s_trigger = undefined
+            , s_timer = undefined
         },
     {ok, SaveRole};
 do(Flag, Role) ->

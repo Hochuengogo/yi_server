@@ -23,6 +23,8 @@
 -include("logs.hrl").
 -include("role.hrl").
 -include("gateway.hrl").
+-include("trigger.hrl").
+-include("stimer.hrl").
 
 %% @doc 打包发送数据
 -spec pack_send(pos_integer(), term()) -> void().
@@ -178,9 +180,9 @@ do_handle_call({apply, {M, F, A}}, _From, Role) ->
             {reply, Reply, Role};
         {reply, Reply} ->
             {reply, Reply, Role};
-        {ok, Reply, NRole} ->
+        {ok, Reply, NRole = #role{}} ->
             {reply, Reply, NRole};
-        {reply, Reply, NRole} ->
+        {reply, Reply, NRole = #role{}} ->
             {reply, Reply, NRole};
         _Err ->
             ?error("同步执行~w:~w:~w错误，State:~w，Reason:~w", [M, F, A, Role, _Err]),
@@ -216,6 +218,26 @@ do_handle_info({apply, {M, F, A}}, Role) ->
             {noreply, NRole};
         _Err ->
             ?error("异步执行~w:~w:~w错误，State:~w，Reason:~w", [M, F, A, Role, _Err]),
+            {noreply, Role}
+    end;
+
+%% 异步触发事件
+do_handle_info({fire_trigger, EventTuple}, Role = #role{id = RoleId, name = Name}) ->
+    case catch role_trigger:fire(Role, EventTuple) of
+        {NRole = #role{}} ->
+            {noreply, NRole};
+        Err ->
+            ?error("角色[~ts]~p异步触发事件失败，事件：~w，错误：~w", [Name, RoleId, EventTuple, Err]),
+            {noreply, Role}
+    end;
+
+%% 定时器超时
+do_handle_info({timeout, Ref, timer_tick}, Role = #role{id = RoleId, name = Name}) ->
+    case catch role_timer:tick(Role, Ref) of
+        {NRole = #role{}} ->
+            {noreply, NRole};
+        Err ->
+            ?error("角色[~ts]~p执行定时器事件失败，错误：~w", [Name, RoleId, Err]),
             {noreply, Role}
     end;
 

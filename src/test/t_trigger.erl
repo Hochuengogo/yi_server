@@ -23,8 +23,8 @@
 -record(t_trigger_state, {s_trigger, data}).
 
 %% 测试事件
--record(evt_test_1, {data}).
--record(evt_test_2, {data}).
+%%-record(evt_test_1, {data}).
+%%-record(evt_test_2, {data}).
 -record(evt_test_3, {data}).
 
 -include("common.hrl").
@@ -43,7 +43,7 @@ init([]) ->
     T2 = #trigger{event = evt_test_1, callback = {?MODULE, evt_test_1_callback, [test]}},
     T3 = #trigger{event = evt_test_2, callback = {?MODULE, evt_test_2_callback, []}},
     T4 = #trigger{event = evt_test_3, callback = {?MODULE, evt_test_3_callback, []}},
-    {STrigger, _} = strigger:registers(#s_trigger{}, [T1, T2, T3, T4]),
+    {STrigger, _} = strigger:register(#s_trigger{}, [T1, T2, T3, T4]),
     {ok, #t_trigger_state{s_trigger = STrigger}}.
 
 handle_call(_Request, _From, State = #t_trigger_state{}) ->
@@ -79,16 +79,16 @@ code_change(_OldVsn, State = #t_trigger_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-evt_test_1_callback(STrigger, State, EventTuple) ->
+evt_test_1_callback(STrigger, State, _EventTuple) ->
     {NewSTrigger, NewState} = strigger:fire(STrigger, State, #evt_test_3{}),
     {remove, {evt_test_2, 3}, NewSTrigger, NewState}.
 
-evt_test_1_callback(STrigger, State, EventTuple, Flag) ->
+evt_test_1_callback(_STrigger, _State, _EventTuple, _Flag) ->
     ok.
 
-evt_test_2_callback(STrigger, State, EventTuple) ->
+evt_test_2_callback(_STrigger, _State, _EventTuple) ->
     {remove, {evt_test_3, 4}}.
 
-evt_test_3_callback(STrigger, State, EventTuple) ->
+evt_test_3_callback(STrigger, _State, _EventTuple) ->
 %%    {NewSTrigger, NewState} = trigger:fire(STrigger, State, #evt_test_1{}),
     {ok, STrigger}.

@@ -75,8 +75,8 @@
     , platform = <<>>            %% 平台
     , is_sync = 0                %% 是否要保存数据到磁盘
     , m_gateway                  %% 网关信息
-    , m_bag                      %% 背包信息
-    , m_guild                    %% 联盟信息
+    , s_trigger                  %% 触发器
+    , s_timer                    %% 定时器
 }).
 
 %% 角色基础数据
