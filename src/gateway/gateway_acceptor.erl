@@ -97,7 +97,7 @@ do_handle_info(accept, Acceptor = #gateway_acceptor{lsock = LSock}) ->
 do_handle_info({inet_async, LSock, Ref, {ok, CSock}}, Acceptor = #gateway_acceptor{lsock = LSock, ref = Ref}) ->
     {ok, Mod} = inet_db:lookup_socket(LSock),
     inet_db:register_socket(CSock, Mod),
-    gateway_mgr:info({start_gateway, CSock}),
+    atk(CSock),
     self() ! accept,
     {noreply, Acceptor};
 %% 异常接收到一个socket
@@ -122,3 +122,29 @@ do_handle_info({inet_async, LSock, _Ref, {error, Reason}}, Acceptor = #gateway_a
 
 do_handle_info(_Info, State) ->
     {noreply, State}.
+
+%% 握手
+atk(CSock) ->
+    case gen_tcp:recv(CSock, 0, 1000) of
+        {ok, ?game_name} ->
+            start_gateway(CSock);
+        _ ->
+            catch inet:close(CSock)
+    end.
+
+%% 启动网关
+start_gateway(CSock) ->
+    case gateway:start() of
+        {ok, Pid} ->
+            case gen_tcp:controlling_process(CSock, Pid) of
+                ok ->
+                    Pid ! {start_gateway, CSock};
+                _Err ->
+                    ?error("交接socket进程失败, socket:~w, pid:~w, 返回:~w", [CSock, Pid, _Err]),
+                    exit(Pid, normal),
+                    catch inet:close(CSock)
+            end;
+        _Err ->
+            ?error("启动worker进程失败，返回:~w", [_Err]),
+            catch inet:close(CSock)
+    end.

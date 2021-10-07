@@ -11,7 +11,7 @@
 
 %% API
 -export([
-    keyfind/4, keyfind/6,
+    keyfind/3, keyfind/4, keyfind/6,
     keystore/6,
     shuffle/1,
     rand/1,
@@ -27,12 +27,22 @@
     add_sort/3,
     add_keysort/3,
     set_idx/2,
-    set_idx2/1
+    add_idx/1
 ]).
 
 %% @doc lists:keyfind加一个默认值
+-spec keyfind(term(), list(), term()) -> term().
+keyfind(Key, List, Default) ->
+    case lists:keyfind(Key, 1, List) of
+        false ->
+            Default;
+        {_, Val} ->
+            Val
+    end.
+
+%% @doc lists:keyfind加一个默认值
 -spec keyfind(term(), pos_integer(), list(), term()) -> term().
-keyfind(Key, Pos, List, Default) when is_list(List) ->
+keyfind(Key, Pos, List, Default) ->
     case lists:keyfind(Key, Pos, List) of
         false ->
             Default;
@@ -42,13 +52,13 @@ keyfind(Key, Pos, List, Default) when is_list(List) ->
 
 %% @doc 在二层列表中获取一个值
 -spec keyfind(term(), pos_integer(), term(), pos_integer(), list(), term()) -> term().
-keyfind(Key, Pos, Key2, Pos2, List, Default) when is_list(List) ->
+keyfind(Key, Pos, Key2, Pos2, List, Default) ->
     ValList = keyfind(Key, Pos, List, []),
     keyfind(Key2, Pos2, ValList, Default).
 
 %% @doc 在二层列表中保存一个值
 -spec keystore(term(), pos_integer(), term(), pos_integer(), list(), term()) -> list().
-keystore(Key, Pos, Key2, Pos2, List, Val) when is_list(List) ->
+keystore(Key, Pos, Key2, Pos2, List, Val) ->
     ValList = keyfind(Key, Pos, List, []),
     NewValList = lists:keystore(Key2, Pos2, ValList, Val),
     lists:keystore(Key, Pos, List, NewValList).
@@ -214,13 +224,13 @@ set_idx([I | List], Pos, Idx, Acc) ->
     NewI = erlang:setelement(Pos, I, Idx),
     set_idx(List, Pos, Idx + 1, [NewI | Acc]).
 
-%% @doc 设置索引
--spec set_idx2(list()) -> list().
-set_idx2(List) ->
-    set_idx2(List, 1, []).
-set_idx2([], _Idx, Acc) ->
+%% @doc 添加索引
+-spec add_idx(list()) -> list().
+add_idx(List) ->
+    add_idx(List, 1, []).
+add_idx([], _Idx, Acc) ->
     lists:reverse(Acc);
-set_idx2([I | List], Idx, Acc) ->
+add_idx([I | List], Idx, Acc) ->
     NewI = erlang:append_element(I, Idx),
-    set_idx2(List, Idx + 1, [NewI | Acc]).
+    add_idx(List, Idx + 1, [NewI | Acc]).
 

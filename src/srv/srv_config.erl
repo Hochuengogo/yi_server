@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([get/1, get/2, set/2, save/2, lock/1, unlock/1, reload/0, set_version/1, set_open_srv_timestamp/1]).
+-export([get/1, get/2, set/2, save/2, update_counter/2, lock/1, unlock/1, reload/0, set_version/1, set_open_srv_timestamp/1]).
 -export([start_link/0, call/1, cast/1, info/1]).
 
 %% gen_server callbacks
@@ -56,12 +56,19 @@ set(Key, Val) ->
     ets:insert(srv_config, {Key, Val}),
     ok.
 
-%% @doc 设置配置并保持到磁盘
+%% @doc 设置配置并保存到磁盘
 -spec save(term(), term()) -> ok.
 save(Key, Val) ->
     ets:insert(srv_config, {Key, Val}),
     dets:insert(srv_config, {Key, Val}),
     ok.
+
+%% @doc 更新计数器并保存到磁盘
+-spec update_counter(term(), integer()) -> integer().
+update_counter(Key, Num) ->
+    Ret = ets:update_counter(srv_config, Key, Num),
+    dets:insert(srv_config, {Key, Ret}),
+    Ret.
 
 %% @doc 设置锁
 -spec lock(term()) -> boolean().

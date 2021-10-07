@@ -15,17 +15,17 @@
 -include("logs.hrl").
 
 %% @doc 协议号映射
--spec do(pos_integer()) -> {ok, atom(), atom(), boolean()} | {error, {bad_mapping, pos_integer()}}.
+-spec do(pos_integer()) -> {ok, atom(), atom(), atom(), boolean()} | {error, {bad_mapping, pos_integer()}}.
 do(Code) ->
     case do_do(Code div 100) of
-        {ok, ProtoMod, RpcMod, IsLogin} ->
-            {ok, ProtoMod, RpcMod, IsLogin};
+        {ok, Parser, ProtoMod, RpcMod, IsLogin} ->
+            {ok, Parser, ProtoMod, RpcMod, IsLogin};
         {error, Err} ->
             ?error("协议号映射错误, 协议号:~w", [Code]),
             {error, Err}
     end.
 
-do_do(100) ->
-    {ok, proto_100, gateway_rpc, false};
-do_do(Code) ->
-    {error, {bad_mapping, Code}}.
+do_do(100) -> {ok, gateway, proto_100, gateway_rpc, false};
+do_do(101) -> {ok, gateway, proto_101, login_rpc, true};
+do_do(102) -> {ok, role, proto_102, notice_rpc, true};
+do_do(Code) -> {error, {bad_mapping, Code}}.

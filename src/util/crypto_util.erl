@@ -22,11 +22,11 @@ md5(Data) ->
     erlang:md5(Data).
 
 %% @doc md5加密并转成16进制字符串
--spec md5_hex_string(string()) -> list().
+-spec md5_hex_string(string()) -> binary().
 md5_hex_string(Data) ->
     hex_string(md5(Data)).
 
 %% @doc 转成16进制字符串
--spec hex_string(binary()) -> list().
+-spec hex_string(binary()) -> binary().
 hex_string(Bin) when is_binary(Bin) ->
-    lists:flatten([io_lib:format("~2.16.0b", [V]) || <<V>> <= Bin]).
+    utf8_util:chars_to_utf8([io_lib:format("~2.16.0b", [V]) || <<V>> <= Bin]).

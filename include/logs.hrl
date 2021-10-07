@@ -8,6 +8,9 @@
 %%%-------------------------------------------------------------------
 -author("huangzaoyi").
 
+-ifndef(logs_hrl).
+-define(logs_hrl, 1).
+
 %% 运行时日志宏
 -define(debug(Format, Args), begin case logs_lib:can_log(debug) of true -> logs:log(debug, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Format, Args)); _ -> ok end end).
 -define(debug(Str), begin case logs_lib:can_log(debug) of true -> logs:log(debug, ?MODULE, ?FUNCTION_NAME, ?LINE, io_lib:format(Str, [])); _ -> ok end end).
@@ -25,6 +28,7 @@
 -define(print(Format, Args), io:format(Format, Args)).
 -define(print(Fd, Format, Args), io:format(Fd, Format, Args)).
 -define(print_line(Format), begin io:format(Format), io:format("\n") end).
+-define(print_line(Format, Args), begin io:format(Format, Args), io:format("\n") end).
 
 %% 网关调试日志宏
 -ifdef(gate_debug).
@@ -33,4 +37,6 @@
 -else.
 -define(gate_debug(_Format, _Args), ok).
 -define(gate_debug(_Str), ok).
+-endif.
+
 -endif.

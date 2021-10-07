@@ -31,12 +31,12 @@ info(Info) ->
 
 apply(sync, MFA = {_M, _F, _A}) ->
     call({apply, MFA});
-apply(sync, FA = {_F, _A}) ->
-    call({apply, FA});
+apply(sync, {F, A}) ->
+    call({apply, {undefined, F, A}});
 apply(async, MFA = {_M, _F, _A}) ->
     info({apply, MFA});
-apply(async, FA = {_F, _A}) ->
-    info({apply, FA}).
+apply(async, {F, A}) ->
+    info({apply, {undefined, F, A}}).
 
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
@@ -83,7 +83,7 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 do_handle_call({apply, {M, F, A}}, _From, State) ->
-    case catch util:apply({M, F, [State | A]}) of
+    case catch util:apply(M, F, [State | A]) of
         {ok, Reply} ->
             {reply, Reply, State};
         {reply, Reply} ->
@@ -96,20 +96,6 @@ do_handle_call({apply, {M, F, A}}, _From, State) ->
             ?error("同步执行~w:~w:~w错误，State:~w，Reason:~w", [M, F, A, State, _Err]),
             {reply, {error, apply_error}, State}
     end;
-do_handle_call({apply, {F, A}}, _From, State) ->
-    case catch util:apply({F, [State | A]}) of
-        {ok, Reply} ->
-            {reply, Reply, State};
-        {reply, Reply} ->
-            {reply, Reply, State};
-        {ok, Reply, NewState} ->
-            {reply, Reply, NewState};
-        {reply, Reply, NewState} ->
-            {reply, Reply, NewState};
-        _Err ->
-            ?error("同步执行~w:~w错误，State:~w，Reason:~w", [F, A, State, _Err]),
-            {reply, {error, apply_error}, State}
-    end;
 
 do_handle_call(_Request, _From, State) ->
     {reply, {error, bad_request}, State}.
@@ -118,7 +104,7 @@ do_handle_cast(_Request, State) ->
     {noreply, State}.
 
 do_handle_info({apply, {M, F, A}}, State) ->
-    case catch util:apply({M, F, [State | A]}) of
+    case catch util:apply(M, F, [State | A]) of
         ok ->
             {noreply, State};
         {ok, NewState} ->
@@ -127,18 +113,6 @@ do_handle_info({apply, {M, F, A}}, State) ->
             {noreply, NewState};
         _Err ->
             ?error("异步执行~w:~w:~w错误，State:~w，Reason:~w", [M, F, A, State, _Err]),
-            {noreply, State}
-    end;
-do_handle_info({apply, {F, A}}, State) ->
-    case catch util:apply({F, [State | A]}) of
-        ok ->
-            {noreply, State};
-        {ok, NewState} ->
-            {noreply, NewState};
-        {noreply, NewState} ->
-            {noreply, NewState};
-        _Err ->
-            ?error("异步执行~w:~w错误，State:~w，Reason:~w", [F, A, State, _Err]),
             {noreply, State}
     end;
 

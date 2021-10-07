@@ -18,12 +18,12 @@
 
 %% 要启动的应用
 -define(start_apps, [
-    logs, db, yi_server
+    logs, yi_server
 ]).
 
 %% 要启动的进程
 -define(start_zone_ids, [
-    db, srv_code, srv_time, gateway_sup, gateway_mgr, gateway_acceptor_sup, gateway_listener
+    db, srv_code, srv_time, role_data, role_query, gateway_sup, gateway_mgr, gateway_acceptor_sup, gateway_listener
 ]).
 
 -define(start_center_ids, [
@@ -103,7 +103,7 @@ start_service(Id) when is_atom(Id) ->
 start_service(Service = #service{depend_on = SupMod}) when SupMod =/= undefined ->
     supervisor:start_child(SupMod, child_spec(Service));
 start_service(Service = #service{}) ->
-    supervisor:start_child(worker_sup, child_spec(Service));
+    supervisor:start_child(yi_server_sup, child_spec(Service));
 start_service(_Service) ->
     {error, service_not_exist}.
 
@@ -138,7 +138,7 @@ get_service(srv_time) ->
 get_service(db) ->
     #service{
         id = db,
-        start = {db_lib, start_link, []},
+        start = {db, start_link, []},
         desc = "mysql数据库连接池"
     };
 get_service(gateway_sup) ->
@@ -171,4 +171,16 @@ get_service(gateway_listener) ->
         start = {gateway_listener, start_link, []},
         depend_on = gateway_sup,
         desc = "网关监听进程"
+    };
+get_service(role_data) ->
+    #service{
+        id = role_data,
+        start = {role_data, start_link, []},
+        desc = "角色数据管理进程"
+    };
+get_service(role_query) ->
+    #service{
+        id = role_query,
+        start = {role_query, start_link, []},
+        desc = "角色查询进程"
     }.

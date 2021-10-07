@@ -1,70 +1,67 @@
 %%%-------------------------------------------------------------------
-%%% @author huangzaoyi
-%%% @copyright (C) 2019, <COMPANY>
-%%% @doc 测试网关客户端
-%%%
+%%% @author jiaoyinyi
+%%% @copyright (C) 2021, <COMPANY>
+%%% @doc
+%%% 网关客户端
 %%% @end
-%%% Created : 27. 三月 2019 08:36
+%%% Created : 2021-10-06 18:18:41
 %%%-------------------------------------------------------------------
 -module(t_gateway_client).
--author("huangzaoyi").
+-author("jiaoyinyi").
 
 -behaviour(gen_server).
 
 %% API
--export([start_many/1, start/1, stop_many/1, stop/1]).
+-export([call/2, cast/2, info/2, start/2, stop/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([
+    pack_send/2
+]).
 
 -include("common.hrl").
 -include("logs.hrl").
 -include("gateway.hrl").
 
--define(client_opts, [
-    binary,
-    {active, false},
-    {nodelay, true},
-    {delay_send, true},
-    {send_timeout, 30000},
-    {send_timeout_close, true},
-    {exit_on_close, false}
-]).
+%% 关闭
+stop(Account) ->
+    ProName = list_to_atom(lists:concat(["client_", binary_to_list(Account)])),
+    catch info(ProName, {stop, normal}).
 
-start_many(N) when is_integer(N) andalso N > 0 ->
-    start(N),
-    start_many(N - 1);
-start_many(_N) ->
-    ok.
+call(ProName, Request) ->
+    ?scall(ProName, Request).
 
-stop_many(N) when is_integer(N) andalso N > 0 ->
-    stop(N),
-    stop_many(N - 1);
-stop_many(_N) ->
-    ok.
+cast(ProName, Request) ->
+    gen_server:cast(ProName, Request).
 
-start(N) ->
-    gen_server:start({local, list_to_atom(lists:concat(["client_", N]))}, ?MODULE, [], []).
+info(ProName, Info) ->
+    ProName ! Info.
 
-stop(N) ->
-    case erlang:whereis(list_to_atom(lists:concat(["client_", N]))) of
-        Pid when is_pid(Pid) ->
-            exit(Pid, normal);
-        _ ->
-            ok
-    end.
+start(Type, Account) ->
+    ProName = list_to_atom(lists:concat(["client_", binary_to_list(Account)])),
+    gen_server:start({local, ProName}, ?MODULE, [Type, ProName, Account], []).
 
-init([]) ->
+init([Type, ProName, Account]) ->
+    ?info("[~w]开始启动", [ProName]),
     process_flag(trap_exit, true),
-    ListenHost = srv_config:get(gateway_host),
-    {ok, ListenIP} = inet:getaddr(ListenHost, inet),
-    ListenPort = srv_config:get(gateway_port),
-    {ok, Sock} = gen_tcp:connect(ListenIP, ListenPort, [{packet, 2} | ?client_opts]),
-    {ok, _} = prim_inet:async_recv(Sock, 0, -1),
-    sock_print(Sock, connect),
-    put(receiving, true), %% 将正在接收socket数据标识设置为true
-    Client = #gateway_client{sock = Sock},
-    put('@socket', Sock), %% 方便获取socket
+    Host = srv_config:get(gateway_host),
+    {ok, IP} = inet:getaddr(Host, inet),
+    Port = srv_config:get(gateway_port),
+    Opts = srv_config:get(gateway_options),
+    NewOpts0 = lists:keydelete(reuseaddr, 1, Opts),
+    NewOpts = lists:keydelete(backlog, 1, NewOpts0),
+    {ok, Sock} = gen_tcp:connect(IP, Port, NewOpts),
+    ok = gen_tcp:send(Sock, ?game_name),
+    put('@socket', Sock),
+    {ok, Ref} = prim_inet:async_recv(Sock, ?gateway_packet_head_byte, -1),
+    SecretKey = <<"x9%Dl%TnGX!oHKnNPN2SjluhT*Ei7OO5">>,
+    Platform = srv_lib:platform(),
+    Timestamp = integer_to_binary(time_util:timestamp()),
+    Sign = crypto_util:md5_hex_string([Account, Platform, SecretKey, Timestamp]),
+    AccountLoginData = [{<<"account">>, Account}, {<<"timestamp">>, Timestamp}, {<<"sign">>, Sign}],
+    ok = pack_send(10000, AccountLoginData),
     self() ! heartbeat,
-    {ok, Client}.
+    ?info("[~w]启动完成", [ProName]),
+    {ok, #gateway_client{action_type = Type, account = Account, sock = Sock, ref = Ref, read_head = true}}.
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -72,157 +69,168 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Request, State) ->
     {noreply, State}.
 
-handle_info(_Info, State) ->
-    case catch do_handle_info(_Info, State) of
-        {noreply, NewState} ->
-            {noreply, NewState};
-        {stop, Reason, NewState} ->
-            {stop, Reason, NewState};
-        _Err ->
-            ?error("处理错误, 消息:~w, State:~w, Reason:~w", [_Info, State, _Err]),
-            {stop, normal, State}
-    end.
-
-terminate(_Reason, #gateway_client{sock = Sock}) ->
-    sock_print(Sock, close),
-    catch inet:close(Sock),
-    ok.
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
-%% 接收到数据
-do_handle_info({inet_async, Sock, _Ref, {ok, <<Code:16, Bin/binary>>}}, Client = #gateway_client{sock = Sock}) ->
-    put(receiving, false), %% 将正在接收socket数据标识设置为false
+%% 接收数据头部长度
+handle_info({inet_async, Sock, Ref, {ok, <<DataSize:?gateway_packet_head_bits>>}}, Client = #gateway_client{sock = Sock, ref = Ref, read_head = true}) ->
+    NewClient = Client#gateway_client{read_head = false, data_size = DataSize},
+    self() ! async_recv,
+    {noreply, NewClient};
+%% 接收数据
+handle_info({inet_async, Sock, Ref, {ok, Packet}}, Client = #gateway_client{sock = Sock, ref = Ref, read_head = false}) when byte_size(Packet) > ?gateway_packet_data_max_byte ->
+    ?error("协议数据包字节超过上限，包大小：~w", [byte_size(Packet)]),
+    NewClient = Client#gateway_client{read_head = true, data_size = 0},
+    self() ! async_recv,
+    {noreply, NewClient};
+%% 接收数据
+handle_info({inet_async, Sock, Ref, {ok, <<_:?gateway_packet_compress_bits, Code:?gateway_packet_code_bits, _/binary>> = Packet}}, Client = #gateway_client{sock = Sock, ref = Ref, read_head = false}) ->
+    %% 处理协议解包
     Ret =
-        case t_client:unpack(Code, res, Bin) of
-            {ok, Term} ->
-                t_client:route(Code, Term, Client);
-            {error, _Err} -> %% 记录解包出错次数
-                ErrorTimes = misc_lib:get(unpack_error_times, 0),
-                NewErrorTimes = ErrorTimes + 1,
-                case NewErrorTimes >= ?max_unpack_error_times of
-                    false ->
-                        put(unpack_error_times, NewErrorTimes),
-                        {noreply, Client};
-                    _ ->
-                        {stop, normal, Client}
-                end
+        case unpack(Packet, res) of
+            {ok, Data} ->
+                route(Code, Data, Client);
+            {error, _Err} ->
+                {noreply, Client}
         end,
     case Ret of
-        {noreply, NewGateway} ->
-            case misc_lib:get(proto_msg_num, 0) < ?max_recv_proto_msg_num of
-                true -> %% 小于未处理协议消息最大数量，接收socket数据
-                    self() ! async_recv;
-                _ ->
-                    ok
-            end,
-            {noreply, NewGateway};
-        {stop, Reason, NewGateway} ->
-            {stop, Reason, NewGateway}
+        {noreply, NewClient0} ->
+            NewClient = NewClient0#gateway_client{read_head = true, data_size = 0},
+            self() ! async_recv,
+            {noreply, NewClient};
+        {stop, Reason, NewClient} ->
+            {stop, Reason, NewClient}
     end;
-
-do_handle_info({inet_async, _Sock, _Ref, {ok, Packet}}, Client) ->
+%% 接收到异常数据
+handle_info({inet_async, _Sock, _Ref, {ok, Packet}}, Client) ->
     ?error("接收到错误的数据包, 数据:~w", [Packet]),
     {stop, normal, Client};
 
 %% socket断开连接
-do_handle_info({inet_async, Sock, _Ref, {error, closed}}, Client = #gateway_client{sock = Sock}) ->
+handle_info({inet_async, Sock, _Ref, {error, closed}}, Client = #gateway_client{sock = Sock}) ->
     {stop, normal, Client};
-
 %% socket报错
-do_handle_info({inet_async, Sock, _Ref, {error, Reason}}, Client = #gateway_client{sock = Sock}) ->
+handle_info({inet_async, Sock, _Ref, {error, Reason}}, Client = #gateway_client{sock = Sock}) ->
     ?error("网络异步处理错误, 原因:~w", [Reason]),
     {stop, normal, Client};
 
 %% 异步接收数据
-do_handle_info(async_recv, Client = #gateway_client{sock = Sock}) ->
-    case prim_inet:async_recv(Sock, 0, -1) of
-        {ok, _} ->
-            put(receiving, true),
-            {noreply, Client};
+handle_info(async_recv, Client = #gateway_client{sock = Sock, read_head = ReadHead, data_size = DataSize}) ->
+    RecvSize = ?if_true(ReadHead, ?gateway_packet_head_byte, DataSize),
+    case prim_inet:async_recv(Sock, RecvSize, -1) of
+        {ok, Ref} ->
+            NewClient = Client#gateway_client{ref = Ref},
+            {noreply, NewClient};
         {error, _Err} ->
             ?error("Socket异步接受错误, 原因:~w", [_Err]),
             {stop, normal, Client}
     end;
 
 %% 发送数据
-do_handle_info({send_data, Bin}, Client = #gateway_client{sock = Sock}) ->
-    case t_client:sock_send(Sock, Bin) of
-        {error, _Err} ->
-            ?error("发送数据错误，原因：~w", [_Err]),
+handle_info({send_data, Bin}, Client = #gateway_client{sock = Sock}) when is_binary(Bin) orelse is_list(Bin) ->
+    case send(Sock, Bin) of
+        ok ->
+            {noreply, Client};
+        {error, busy} ->
+            ?gate_debug("socket发送数据繁忙"),
             {stop, normal, Client};
-        _ ->
-            {noreply, Client}
+        {error, Reason} ->
+            ?error("socket发送数据错误, 原因:~w", [Reason]),
+            {stop, normal, Client}
     end;
 
-%% 延迟发送数据
-do_handle_info(delay_send_data, Client = #gateway_client{sock = Sock}) ->
-    ?debug("进入延迟发送数据处理"),
-    erase(delay_send_ref),
-    case t_client:sock_send(Sock, []) of
-        {error, _Err} ->
-            ?error("发送数据错误，原因：~w", [_Err]),
-            {stop, normal, Client};
-        _ ->
-            {noreply, Client}
-    end;
-
-%% 发送数据回复成功
-do_handle_info({inet_reply, _Sock, ok}, Client) ->
-    {noreply, Client};
-
-%% 发送数据回复失败
-do_handle_info({inet_reply, _Sock, {error, closed}}, Client) ->
+%% socket挂了
+handle_info({'EXIT', Sock, Reason}, Client = #gateway_client{sock = Sock}) ->
+    ?error("socket挂了, 原因:~w", [Reason]),
     {stop, normal, Client};
 
-%% 发送数据回复失败
-do_handle_info({inet_reply, _Sock, Status}, Client) ->
-    ?error("发送数据回复失败，原因：~w", [Status]),
-    {stop, normal, Client};
-
-%% 读取下一条协议消息
-do_handle_info(read_next, Client) ->
-    put(read_next, true),
-    case misc_lib:get(proto_msg_list, []) of
-        [ProtoMsg | ProtoMsgList] ->
-            self() ! ProtoMsg,
-            put(proto_msg_list, ProtoMsgList),
-            put(proto_msg_num, length(ProtoMsgList)),
-            put(read_next, false);
-        _ ->
-            ok
-    end,
-    case misc_lib:get(proto_msg_num, 0) < ?max_recv_proto_msg_num of
-        true -> %% 小于未处理协议消息最大数量，接收socket数据
-            get(receiving) == false andalso self() ! async_recv;
-        _ ->
-            ok
-    end,
+%% 心跳
+handle_info(heartbeat, Client = #gateway_client{account = Account}) ->
+    ?gate_debug("账号：~ts执行心跳", [Account]),
+    pack_send(10001, {}),
     {noreply, Client};
 
-%%
-do_handle_info({'EXIT', _Pid, Reason}, Client) ->
+%% 关闭
+handle_info({stop, Reason}, Client) ->
     {stop, Reason, Client};
 
-%% 发送心跳
-do_handle_info(heartbeat, Client = #gateway_client{sock = Sock}) ->
-    t_client:sock_pack_send(Sock, 10000, {}),
-    erlang:send_after(2000, self(), heartbeat),
+handle_info(_Info, Client) ->
+    {noreply, Client}.
+
+terminate(Reason, #gateway_client{sock = Sock}) ->
+    ?info("[~w]开始关闭，原因：~w", [?MODULE, Reason]),
+    catch inet:close(Sock),
+    ?info("[~w]关闭完成", [?MODULE]),
+    ok.
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+%% @doc socket发送数据
+send(Sock, Bin) ->
+    NewBin = pack_bin_head(Bin),
+    gen_tcp:send(Sock, NewBin).
+
+%% 打包数据并发送
+pack_send(Code, Data) ->
+    Bin = gateway_lib:pack(Code, req, Data),
+    send(get('@socket'), Bin).
+
+%% @doc 数据加包头
+pack_bin_head(Bins) when is_list(Bins) ->
+    list_to_binary([pack_bin_head(Bin) || Bin <- Bins]);
+pack_bin_head(<<>>) ->
+    <<>>;
+pack_bin_head(Bin) ->
+    <<(byte_size(Bin)):?gateway_packet_head_bits, Bin/binary>>.
+
+%% @doc 解包协议数据
+-spec unpack(binary(), req | res) -> {ok, term()} | {error, term()}.
+unpack(<<0:?gateway_packet_compress_bits, Code:?gateway_packet_code_bits, Bin/binary>>, Flag) ->
+    gateway_lib:unpack(Code, Flag, Bin);
+unpack(<<1:?gateway_packet_compress_bits, Code:?gateway_packet_code_bits, Bin/binary>>, Flag) ->
+    gateway_lib:unpack(Code, Flag, util:uncompress(Bin));
+unpack(Packet, Flag) ->
+    ?error("解包失败，错误的数据包：~w，标识：~w", [Packet, Flag]),
+    {error, {bad_packet, Packet, Flag}}.
+
+%% @doc 路由
+route(Code, Data, Client = #gateway_client{}) ->
+    case mapping:do(Code) of
+        {ok, _Parser, _ProtoMod, _RpcMod, _IsLogin} ->
+            Ret = (catch t_gateway_client_rpc:handle(Code, Data, Client)),
+            handle_ret(Ret, Code, Client);
+        {error, _Reason} ->
+            {noreply, Client};
+        Err ->
+            ?error("其他情况接收到协议，code：~w，错误：~w", [Code, Err]),
+            {stop, normal, Client}
+    end.
+
+handle_ret(ok, _Code, Client) ->
     {noreply, Client};
-
-do_handle_info(_Info, State) ->
-    {noreply, State}.
-
-%% 打印信息
-sock_print(Sock, connect) ->
-    {ok, {IP, Port}} = inet:peername(Sock),
-    StrIP = inet:ntoa(IP),
-    put(ip, IP),
-    put(port, Port),
-    ?gate_debug("Socket连接到网关，IP：~s，Port：~w", [StrIP, Port]);
-sock_print(_Sock, close) ->
-    IP = get(ip),
-    StrIP = inet:ntoa(IP),
-    Port = get(port),
-    ?gate_debug("Socket断开连接网关，IP：~s，Port：~w", [StrIP, Port]).
+handle_ret({ok, NewClient = #gateway_client{}}, _Code, _Client) ->
+    {noreply, NewClient};
+handle_ret({reply, Reply}, Code, Client) ->
+    case pack_send(Code, Reply) of
+        ok ->
+            {noreply, Client};
+        {error, Reason} ->
+            {stop, Reason, Client}
+    end;
+handle_ret({reply, Reply, NewClient = #gateway_client{}}, Code, _Client) ->
+    case pack_send(Code, Reply) of
+        ok ->
+            {noreply, NewClient};
+        {error, Reason} ->
+            {stop, Reason, NewClient}
+    end;
+handle_ret({stop, Reason}, _Code, Client) ->
+    {stop, Reason, Client};
+handle_ret({stop, Reason, NewClient = #gateway_client{}}, _Code, _Client) ->
+    {stop, Reason, NewClient};
+handle_ret({error, {bad_handle, _Code}}, _Code, Client) ->
+    {noreply, Client};
+handle_ret({'EXIT', Err}, Code, Client) ->
+    ?error("处理协议code：~w，遇到了未处理错误：~w", [Code, Err]),
+    {stop, {error, Err}, Client};
+handle_ret(Ret, Code, Client) ->
+    ?error("未做处理的返回格式：~w，code：~w", [Ret, Code]),
+    {stop, normal, Client}.

@@ -21,13 +21,13 @@ init([]) ->
         strategy => one_for_one,
         intensity => 10,
         period => 10},
-    WorkerSup = #{
-        id => worker_sup,
-        start => {worker_sup, start_link, []},
+    SrvConfig = #{
+        id => srv_config,
+        start => {srv_config, start_link, []},
         restart => permanent,
-        shutdown => infinity,
-        type => supervisor,
-        modules => [worker_sup]
+        shutdown => 300000,
+        type => worker,
+        modules => [srv_config]
     },
-    ChildSpecs = [WorkerSup],
+    ChildSpecs = [SrvConfig],
     {ok, {SupFlags, ChildSpecs}}.

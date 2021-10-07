@@ -8,6 +8,11 @@
 %%%-------------------------------------------------------------------
 -author("huangzaoyi").
 
+-ifndef(common_hrl).
+-define(common_hrl, 1).
+
+-define(game_name, <<"greate world">>).
+
 %% 整数型bool
 -define(true, 1).
 -define(false, 0).
@@ -32,6 +37,8 @@
 -define(min_ms(Min), Min * ?min_ms).
 -define(sec_ms(Sec), Sec * ?sec_ms).
 -define(secs_from_0_to_1970, 62167219200).
+
+-define(error_ver, erlang:error(bad_ver)). %% 版本号抛出异常，防止直接初始化结构错误
 
 %% call封装
 -define(scall(Server, Call),
@@ -73,10 +80,19 @@
 -define(stop_end, io_lib:format("关闭完成:~w", [?MODULE])).
 -define(stop_end(Name), io_lib:format("关闭完成:~w", [Name])).
 
+%% 判断是否true 或者 false，执行对应的方法
 -define(if_true(_Is_, _True_, _False_), case _Is_ of true -> _True_; _ -> _False_ end).
 
--export_type([srv_id/0, language/0, void/0]).
+%% 将list字符串转成二进制字符串
+-define(str(Format), utf8_util:chars_to_utf8(Format)).
+-define(str(Format, Args), utf8_util:chars_to_utf8(io_lib:format(Format, Args))).
+
+-export_type([srv_id/0, language/0, void/0, msg/0, role_id/0]).
 
 -type srv_id() :: binary().
 -type language() :: chinese.
 -type void() :: any().
+-type msg() :: pos_integer() | {pos_integer(), list()} | binary() | {pos_integer(), list(), binary()}.
+-type role_id() :: {pos_integer(), binary()}.
+
+-endif.

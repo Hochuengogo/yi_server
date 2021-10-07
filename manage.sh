@@ -88,7 +88,7 @@ function make_dep() {
 DOC[cp_dep]="复制依赖库的beam、app文件"
 function cp_dep() {
     echo -e "$(color green "开始复制依赖库")"
-    local lib_path="${CFG[root]}/lib/_build/default/lib"
+    lib_path="${CFG[root]}/lib/_build/default/lib"
     if [[ ! -e "${CFG[root]}/tbin" ]]; then
         mkdir "${CFG[root]}/tbin"
     fi
@@ -103,12 +103,12 @@ function cp_dep() {
 # 安装服务器
 DOC[install]="安装服务器(install srv_type srv_id)"
 function install() {
-    local srv_type=$(check_empty "请输入服务器类型(zone|center):", $1)
+    srv_type=$(check_empty "请输入服务器类型(zone|center):", $1)
     if [[ ${srv_type} != zone ]] && [[ ${srv_type} != center ]]; then
         echo -e "$(color yellow "服务器类型只能为zone或center")"
         return 1
     fi
-    local srv_id=$(check_empty "请输入服务器ID(非负整数):", $2)
+    srv_id=$(check_empty "请输入服务器ID(非负整数):", $2)
     if ! is_int ${srv_id} || [[ ${srv_id} -lt 0 ]]; then
         echo -e "$(color yellow "非法服务器ID")"
         return 1
@@ -119,13 +119,13 @@ function install() {
         mkdir ${CFG[zone_path]}
     fi
 
-    local mysql_db=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
-    local mysql_cmd="mysql -h${CFG[mysql_host]} -u${CFG[mysql_user]} -p${CFG[mysql_password]} -P ${CFG[mysql_port]}"
+    mysql_db=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
+    mysql_cmd="mysql -h${CFG[mysql_host]} -u${CFG[mysql_user]} -p${CFG[mysql_password]} -P ${CFG[mysql_port]}"
     ${mysql_cmd} -e "use ${mysql_db};"
-    local mysql_exist=$?
+    mysql_exist=$?
 
-    local server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
-    local server_path=${CFG[zone_path]}/${server_name}
+    server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
+    server_path=${CFG[zone_path]}/${server_name}
 
     if [[ ${mysql_exist} -eq 0 ]]; then
         echo -e "$(color yellow "数据库${mysql_db}已存在")"
@@ -155,9 +155,9 @@ function install() {
     mkdir ${server_path}
     mkdir ${server_path}/dets
     mkdir ${server_path}/log
-    local gateway_port=$((${CFG[base_port]} + ${srv_id}))
-    local open_srv_timestamp=$(date '+%s')
-    local sed_str="s/{srv_id}/${srv_id}/g;s/{srv_type}/${srv_type}/g;s/{platform}/${CFG[platform]}/g;s/{mysql_host}/${CFG[mysql_host]}/g;s/{mysql_port}/${CFG[mysql_port]}/g;s/{mysql_user}/${CFG[mysql_user]}/g;s/{mysql_password}/${CFG[mysql_password]}/g;s/{mysql_db}/${mysql_db}/g;s/{gateway_host}/${CFG[gateway_host]}/g;s/{gateway_port}/${gateway_port}/g;s/{game_name}/${CFG[game_name]}/g;s/{open_srv_timestamp}/${open_srv_timestamp}/g;s/{language}/${CFG[game_lang]}/g;s/{version}/${CFG[version]}/g;s#{code_path}#${CFG[root]}#g;s/{cookie}/${CFG[cookie]}/g;"
+    gateway_port=$((${CFG[base_port]} + ${srv_id}))
+    open_srv_timestamp=$(date '+%s')
+    sed_str="s/{server_id}/${srv_id}/g;s/{server_type}/${srv_type}/g;s/{platform}/${CFG[platform]}/g;s/{mysql_host}/${CFG[mysql_host]}/g;s/{mysql_port}/${CFG[mysql_port]}/g;s/{mysql_user}/${CFG[mysql_user]}/g;s/{mysql_password}/${CFG[mysql_password]}/g;s/{mysql_db}/${mysql_db}/g;s/{gateway_host}/${CFG[gateway_host]}/g;s/{gateway_port}/${gateway_port}/g;s/{game_name}/${CFG[game_name]}/g;s/{open_srv_timestamp}/${open_srv_timestamp}/g;s/{language}/${CFG[game_lang]}/g;s/{version}/${CFG[version]}/g;s#{code_path}#${CFG[root]}#g;s/{cookie}/${CFG[cookie]}/g;"
     cat ${CFG[root]}/tpl/server.config.tpl | sed -e "${sed_str}" >${server_path}/server.config
 
     echo -e "$(color green "安装服务器")$(color sky_blue ${server_name})$(color green "完成")"
@@ -166,15 +166,15 @@ function install() {
 # 卸载服务器
 DOC[uninstall]="卸载服务器(uninstall srv_type srv_id)"
 function uninstall() {
-    local srv_type=$(check_empty "请输入服务器类型(zone|center):", $1)
-    local srv_id=$(check_empty "请输入服务器ID(非负整数):", $2)
+    srv_type=$(check_empty "请输入服务器类型(zone|center):", $1)
+    srv_id=$(check_empty "请输入服务器ID(非负整数):", $2)
     mysql_db=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
     mysql_cmd="mysql -h${CFG[mysql_host]} -u${CFG[mysql_user]} -p${CFG[mysql_password]} -P ${CFG[mysql_port]}"
     ${mysql_cmd} -e "use ${mysql_db};"
-    local mysql_exist=$?
+    mysql_exist=$?
 
-    local server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
-    local server_path=${CFG[zone_path]}/${server_name}
+    server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
+    server_path=${CFG[zone_path]}/${server_name}
     if [[ ${mysql_exist} -ne 0 ]] && [[ ! -e ${server_path} ]]; then
         echo -e "服务器$(color sky_blue ${server_name})未安装"
         return 0
@@ -210,9 +210,9 @@ function make() {
     cp -a ${CFG[root]}/tbin/. ${CFG[root]}/ebin
     cp -a ${CFG[root]}/yi_server.app ${CFG[root]}/ebin
     gen_log_level
-    local mods="$(find src -type d | awk '{print "'\''"$0"/*'\'',"}' | sed '$s/,//')"
-    local opts=${CFG[make_args]}
-    local emakefile="[{[${mods}], ${opts}}]"
+    mods="$(find src -type d | awk '{print "'\''"$0"/*'\'',"}' | sed '$s/,//')"
+    opts=${CFG[make_args]}
+    emakefile="[{[${mods}], ${opts}}]"
     erl -noshell -eval "make:all([{emake,${emakefile}}])." -s init stop
     if [[ $? -eq 0 ]]; then
         echo -e "$(color green "编译完成")"
@@ -225,9 +225,9 @@ function make() {
 DOC[make_mod]="编译模块(make_mod mod...)"
 function make_mod() {
     echo -e "$(color green "开始编译模块")"
-    local tmp_mods=$@
+    tmp_mods=$@
     declare -a mods
-    local i=0
+    i=0
     cd ${CFG[root]}
     if [[ ! -e ebin ]]; then
         mkdir ebin
@@ -250,9 +250,9 @@ function make_mod() {
         echo -e "$(color red "找不到[${tmp_mods}]模块")"
         return 1
     fi
-    local make_mods="$(echo ${mods[@]} | tr ' ' '\n' | awk '{print "'\''"$0"/*'\'',"}' | sed '$s/,//')"
-    local opts=${CFG[make_args]}
-    local emakefile="[{[${make_mods}], ${opts}}]"
+    make_mods="$(echo ${mods[@]} | tr ' ' '\n' | awk '{print "'\''"$0"/*'\'',"}' | sed '$s/,//')"
+    opts=${CFG[make_args]}
+    emakefile="[{[${make_mods}], ${opts}}]"
     erl -noshell -eval "make:all([{emake,${emakefile}}])." -s init stop
     if [[ $? -eq 0 ]]; then
         echo -e "$(color green "编译模块[")$(color sky_blue "${mods[*]}")$(color green "]完成")"
@@ -266,7 +266,7 @@ function make_mod() {
 DOC[make_file]="编译文件(make_file file...)"
 function make_file() {
     echo -e "$(color green "开始编译文件")"
-    local tmp_files=$@
+    tmp_files=$@
     declare -a files
     i=0
     cd ${CFG[root]}
@@ -284,9 +284,9 @@ function make_file() {
         echo -e "$(color red "找不到[${tmp_files}]文件")"
         return 1
     fi
-    local make_files="$(echo ${files[@]} | tr ' ' '\n' | awk '{print "'\''"$0"'\'',"}' | sed '$s/,//')"
-    local opts=${CFG[make_args]}
-    local emakefile="[{[${make_files}], ${opts}}]"
+    make_files="$(echo ${files[@]} | tr ' ' '\n' | awk '{print "'\''"$0"'\'',"}' | sed '$s/,//')"
+    opts=${CFG[make_args]}
+    emakefile="[{[${make_files}], ${opts}}]"
     erl -noshell -eval "make:all([{emake,${emakefile}}])." -s init stop
     if [[ $? -eq 0 ]]; then
         echo -e "$(color green "编译文件[")$(color sky_blue "${files[*]}")$(color green "]完成")"
@@ -307,19 +307,19 @@ function clean() {
 # 启动服务器
 DOC[start]="启动服务器节点(start srv_type srv_id)"
 function start() {
-    local srv_type=$1
-    local srv_id=$2
-    local server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
-    local server_path=${CFG[zone_path]}/${server_name}
-    local node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
-    local min_port=$((${CFG[base_port]} + 10000))
-    local max_port=$((${min_port} + 100))
+    srv_type=$1
+    srv_id=$2
+    server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
+    server_path=${CFG[zone_path]}/${server_name}
+    node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
+    min_port=$((${CFG[base_port]} + 10000))
+    max_port=$((${min_port} + 100))
     if [[ -e ${server_path} ]] && [[ -e ${server_path}/server.config ]]; then
         if has_screen ${node_name}; then
             echo -e "$(color green "服务器")$(color sky_blue ${node_name})$(color green "已启动")"
             return 0
         fi
-        local cmd="ulimit -S -n 10240 && erl -pa ${CFG[root]}/ebin -name ${node_name} -setcookie ${CFG[cookie]} -hidden -smp enable +P 1024000 +e 102400 +Q 65536 -kernel inet_dist_listen_min ${min_port} inet_dist_listen_max ${max_port} -s manage start"
+        cmd="ulimit -S -n 10240 && erl -pa ${CFG[root]}/ebin -name ${node_name} -setcookie ${CFG[cookie]} -hidden -smp enable +P 1024000 +e 102400 +Q 65536 -kernel inet_dist_listen_min ${min_port} inet_dist_listen_max ${max_port} -s manage start"
         cd ${server_path} && screen -L -dmS ${node_name} && screen -x -S ${node_name} -p 0 -X stuff "${cmd}\n"
         if [[ $? -eq 0 ]]; then
             echo -e "$(color green "启动服务器")$(color sky_blue ${node_name})$(color green "成功")"
@@ -335,11 +335,11 @@ function start() {
 # 进入服务器控制台
 DOC[shell]="进入screen窗口(shell srv_type srv_id)"
 function shell() {
-    local srv_type=$1
-    local srv_id=$2
-    local server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
-    local server_path=${CFG[zone_path]}/${server_name}
-    local node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
+    srv_type=$1
+    srv_id=$2
+    server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
+    server_path=${CFG[zone_path]}/${server_name}
+    node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
     if has_screen ${node_name}; then
         if in_screen ${node_name}; then
             echo -e "$(color green "已在控制台中！！！")"
@@ -357,12 +357,12 @@ function shell() {
 # 关闭服务器
 DOC[stop]="关闭服务器节点(stop srv_type srv_id)"
 function stop() {
-    local srv_type=$1
-    local srv_id=$2
-    local server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
-    local server_path=${CFG[zone_path]}/${server_name}
-    local node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
-    local exec_node_name=exec_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]}
+    srv_type=$1
+    srv_id=$2
+    server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
+    server_path=${CFG[zone_path]}/${server_name}
+    node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
+    exec_node_name=exec_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]}
     erl -name ${exec_node_name} -setcookie ${CFG[cookie]} -noshell -eval "rpc:call('${node_name}',manage,stop,[])." -s init stop
     if [[ $? -ne 0 ]]; then
         echo -e "$(color red "关闭服务器${node_name}失败")"
@@ -376,12 +376,12 @@ function stop() {
 # 热更
 DOC[update]="热更(update srv_type srv_id)"
 function update() {
-    local srv_type=$1
-    local srv_id=$2
-    local server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
-    local server_path=${CFG[zone_path]}/${server_name}
-    local node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
-    local exec_node_name=exec_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]}
+    srv_type=$1
+    srv_id=$2
+    server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
+    server_path=${CFG[zone_path]}/${server_name}
+    node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
+    exec_node_name=exec_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]}
     erl -name ${exec_node_name} -setcookie ${CFG[cookie]} -noshell -eval "rpc:call('${node_name}',srv_code,hot_update,[])." -s init stop
     if [[ $? -eq 0 ]]; then
         echo -e "$(color green "热更服务器")$(color sky_blue ${node_name})$(color green "成功")"
@@ -394,11 +394,11 @@ function update() {
 # remsh连接节点
 DOC[remsh]="remsh连接节点(remsh srv_type srv_id)"
 function remsh() {
-    local srv_type=$1
-    local srv_id=$2
-    local server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
-    local server_path=${CFG[zone_path]}/${server_name}
-    local node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
+    srv_type=$1
+    srv_id=$2
+    server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
+    server_path=${CFG[zone_path]}/${server_name}
+    node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
     erl -name remsh_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]} -remsh ${node_name} -setcookie ${CFG[cookie]}
     if [[ $? -ne 0 ]]; then
         echo -e "$(color yellow "remsh连接服务器${node_name}失败")"
@@ -409,15 +409,15 @@ function remsh() {
 # 在节点上执行指令
 DOC[exec]="在节点上执行指令(exec srv_type srv_id m f a)"
 function exec() {
-    local srv_type=$1
-    local srv_id=$2
-    local mod=$3
-    local func=$4
-    local args=$5
-    local server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
-    local server_path=${CFG[zone_path]}/${server_name}
-    local node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
-    local exec_node_name=exec_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]}
+    srv_type=$1
+    srv_id=$2
+    mod=$3
+    func=$4
+    args=$5
+    server_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}
+    server_path=${CFG[zone_path]}/${server_name}
+    node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
+    exec_node_name=exec_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]}
     erl -name ${exec_node_name} -setcookie ${CFG[cookie]} -noshell -eval "Ret=rpc:call('${node_name}',${mod},${func},${args}),io:format(\"~w~n\",[Ret])." -s init stop
     if [[ $? -ne 0 ]]; then
         echo -e "$(color red "在服务器${node_name}执行指令${mod} ${func} ${args}失败")"
@@ -438,37 +438,41 @@ function gen_log_level() {
     return 1
 }
 
-DOC[gen_mod]="生成模块(gen_mod mod_type(erl|gs|gf|rpc|ver|mod|mgr|rank|worker|match) mod_name desc mod_dict)"
+DOC[gen_mod]="生成模块(gen_mod mod_type(hrl|erl|gs|gf|rpc|ver|mod|mgr|rank|worker|match) mod_name desc mod_dict)"
 function gen_mod() {
-    local mod_type=$(check_empty "请输入模块类型(erl|gs|gf|rpc|ver|mod|mgr|rank|worker|match):" $1)
-    local mod_types=("erl" "gs" "gf" "rpc" "ver" "mod" "mgr" "rank" "worker" "match")
+    mod_type=$(check_empty "请输入模块类型(hrl|erl|gs|gf|rpc|ver|mod|mgr|rank|worker|match):" $1)
+    mod_types=("hrl" "erl" "gs" "gf" "rpc" "ver" "mod" "mgr" "rank" "worker" "match")
     member ${mod_type} "${mod_types[@]}"
     if [[ $? -ne 0 ]]; then
         echo -e "$(color red "没有该模块类型，请重新输入")"
         return 1
     fi
-    local mod_name=$(check_empty "请输入模块名:" $2)
-    local desc=$(check_empty "请输入描述:" $3)
-    local mod_dir=$(check_empty "请输入模块目录:" $4)
+    mod_name=$(check_empty "请输入模块名:" $2)
+    desc=$(check_empty "请输入描述:" $3)
+    if [ ${mod_type} != "hrl" ]; then
+        mod_dir=$(check_empty "请输入模块目录:" $4)
+    else
+        mod_dir=""
+    fi
     do_gen_mod ${mod_type} ${mod_name} ${desc} ${mod_dir}
 }
 
 # 处理生成模块
 function do_gen_mod() {
-    local mod_type=$1
-    local mod_name=$2
-    local desc=$3
-    local mod_dir=$4
-    local base_mods=("erl" "gs" "gf" "rpc" "ver")
-    local other_mods=("mod" "mgr" "rank")
-    local many_mods=("worker" "match")
+    mod_type=$1
+    mod_name=$2
+    desc=$3
+    mod_dir=$4
+    base_mods=("erl" "gs" "gf" "rpc" "ver")
+    other_mods=("mod" "mgr" "rank")
+    many_mods=("worker" "match")
 
-    local author=${CFG[author]}
-    local year=$(date "+%Y")
-    local create_time=$(date "+%Y-%m-%d %H:%M:%S")
-    local tpl_file=${CFG[root]}/tpl/${mod_type}.erl.tpl
-    local tar_dir=${CFG[root]}/src/${mod_dir}
-    if member ${mod_type} "${base_mods[@]}"; then
+    author=${CFG[author]}
+    year=$(date "+%Y")
+    create_time=$(date "+%Y-%m-%d %H:%M:%S")
+    if [ ${mod_type} = "hrl" ]; then
+        mod=$mod_name
+    elif member ${mod_type} "${base_mods[@]}"; then
         mod=$mod_name
     elif member ${mod_type} "${other_mods[@]}"; then
         echo "其他模块" # 未实现
@@ -480,21 +484,32 @@ function do_gen_mod() {
         echo "没有该模块类型"
         return 1
     fi
+
+    if [ ${mod_type} = "hrl" ]; then
+        tpl_file=${CFG[root]}/tpl/inc.hrl.tpl
+        tar_dir=${CFG[root]}/include
+        tar_file=${tar_dir}/${mod}.hrl
+        desc_mod=include/${mod}.hrl
+    else
+        tpl_file=${CFG[root]}/tpl/${mod_type}.erl.tpl
+        tar_dir=${CFG[root]}/src/${mod_dir}
+        tar_file=${tar_dir}/${mod}.erl
+        desc_mod=src/${mod_dir}/${mod}.erl
+    fi
     if [[ ! -e $tar_dir ]]; then
         mkdir $tar_dir
     fi
-    tar_file=${tar_dir}/${mod}.erl
     if [[ -e $tar_file ]]; then
-        echo -e "$(color red "[src/${mod_dir}/${mod}.erl]模块已存在")"
+        echo -e "$(color red "[${desc_mod}]模块已存在")"
         return 1
     fi
     sed_str="s/{author}/${author}/g;s/{year}/${year}/g;s/{desc}/${desc}/g;s/{create_time}/${create_time}/g;s/{mod}/${mod}/g;"
     cat $tpl_file | sed -e "${sed_str}" >$tar_file
     if [ $? -ne 0 ]; then
-        echo -e "$(color red "[src/${mod_dir}/${mod}.erl]模块创建失败")"
+        echo -e "$(color red "[${desc_mod}]模块创建失败")"
         return 1
     fi
-    echo -e "$(color green "[src/${mod_dir}/${mod}.erl]模块创建成功")"
+    echo -e "$(color green "[${desc_mod}]模块创建成功")"
 }
 
 # 帮助

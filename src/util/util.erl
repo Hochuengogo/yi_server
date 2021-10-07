@@ -12,15 +12,16 @@
 %% API
 -export([
     get/2
-    , set_timer/3, set_timer/4, set_ms_timer/3, set_ms_timer/4, unset_timer/1, have_timer/1
+    , set_timer/3, set_timer/4, set_ms_timer/3, set_ms_timer/4, unset_timer/1, clear_timer/1, have_timer/1
     , gc/0, gc/1
     , rand/1, rand/2
     , compress/1, uncompress/1
     , check_cd/2
-    , term_to_string/1, string_to_term/1
+    , term_to_string/1, term_to_string2/1, string_to_term/1
     , async_apply/4, handle_async_timeout/1, handle_async_return/2
-    , apply/1
+    , apply/3
     , start_timer/3, cancel_timer/1
+    , cn/1
 ]).
 
 %% @doc 获取进程字典值
@@ -47,7 +48,7 @@ set_ms_timer(Name, MSecs, Msg) ->
 set_ms_timer(Name, MSecs, Dest, Msg) ->
     case get('@timers') of
         undefined ->
-            put('@timers', {Name, start_timer(MSecs, Dest, Msg)});
+            put('@timers', [{Name, start_timer(MSecs, Dest, Msg)}]);
         Timers ->
             case lists:keyfind(Name, 1, Timers) of
                 {_, Ref} ->
@@ -72,6 +73,16 @@ unset_timer(Name) ->
                 _ ->
                     ok
             end
+    end.
+
+%% @doc 清除定时器，不管定时器是否已经触发
+-spec clear_timer(term()) -> term().
+clear_timer(Name) ->
+    case get('@timers') of
+        undefined ->
+            ok;
+        Timers ->
+            put('@timers', lists:keydelete(Name, 1, Timers))
     end.
 
 %% @doc 是否有某个定时器
@@ -130,8 +141,16 @@ check_cd(Key, Ms) ->
 term_to_string(Term) ->
     io_lib:format("~w", [Term]).
 
+%% @doc erlang结构转字符串，并将pid替换成undefined
+-spec term_to_string2(term()) -> list().
+term_to_string2(Term) ->
+    Str = io_lib:format("~w", [Term]),
+    re:replace(Str, "<[0-9]{1,4},[0-9]{1,4},[0-9]{1,4}>", "undefined").
+
 %% @doc 字符串转erlang结构
 -spec string_to_term(list()) -> term().
+string_to_term(String) when is_binary(String) ->
+    string_to_term(binary_to_list(String));
 string_to_term(String) ->
     {ok, Tokens, _} = erl_scan:string(String ++ "."),
     {ok, Term} = erl_parse:parse_term(Tokens),
@@ -169,12 +188,10 @@ handle_async_return(Idx, Ret) ->
     end.
 
 %% @doc 执行方法
--spec apply(mfa()) -> any().
-apply({undefined, F, A}) ->
+-spec apply(module(), atom(), list()) -> any().
+apply(undefined, F, A) ->
     erlang:apply(F, A);
-apply({F, A}) ->
-    erlang:apply(F, A);
-apply({M, F, A}) ->
+apply(M, F, A) ->
     erlang:apply(M, F, A).
 
 %% @doc 启动定时器 超时消息格式{timeout, Ref, Msg}
@@ -197,3 +214,8 @@ cancel_timer(Ref) when is_reference(Ref) ->
     end;
 cancel_timer(_Ref) ->
     false.
+
+%% @doc 在控制台输出中文
+-spec cn(binary()) -> ok.
+cn(Bin) ->
+    io:format("~ts", [Bin]).
