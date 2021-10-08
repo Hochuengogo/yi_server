@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([call/1, cast/1, info/1, info/2, apply/2, start_link/0]).
+-export([call/1, cast/1, info/1, apply/2, start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include("common.hrl").
@@ -27,8 +27,6 @@ call(Request) ->
 cast(Request) ->
     gen_server:cast(?MODULE, Request).
 
-info(Node, Info) ->
-    {?MODULE, Node} ! Info.
 info(Info) ->
     ?MODULE ! Info.
 
@@ -48,11 +46,11 @@ init([]) ->
     ?info("[~w]开始启动", [?MODULE]),
     process_flag(trap_exit, true),
     %% 服务器信息 多个服合服后，只会有表现出来的主服信息
-    ets:new(c_srv_info, [named_table, public, set, {keypos, #srv_info.node}]),
+    ets:new(srv_info, [named_table, public, set, {keypos, #srv_info.node}]),
     %% 服务器信息 同版本的服节点信息
-    ets:new(c_srv_id, [named_table, public, set, {keypos, 1}]),
-    %% 服务器信息 不同版本的服节点信息
-    ets:new(c_srv_id_ver, [named_table, public, set, {keypos, 1}]),
+    ets:new(srv_id, [named_table, public, set, {keypos, 1}]),
+    %% 服务器信息 无论版本是否一致的服节点信息
+    ets:new(srv_id_ver, [named_table, public, set, {keypos, 1}]),
     ok = net_kernel:monitor_nodes(true),
     ?info("[~w]启动完成", [?MODULE]),
     {ok, #state{}}.
@@ -86,7 +84,7 @@ handle_info(Info, State) ->
 
 terminate(Reason, _State) ->
     ?info("[~w]开始关闭，原因：~w", [?MODULE, Reason]),
-    catch [net_kernel:disconnect(Node) || #srv_info{node = Node} <- ets:tab2list(c_srv_info)], %% 主动断开和游戏服节点连接
+    catch [net_kernel:disconnect(Node) || #srv_info{node = Node} <- ets:tab2list(srv_info)], %% 主动断开和游戏服节点连接
     ?info("[~w]关闭完成", [?MODULE]),
     ok.
 
@@ -135,16 +133,16 @@ do_handle_info({nodeup, Node}, State) ->
 %% 节点断开连接
 do_handle_info({nodedown, Node}, State) ->
     erlang:monitor_node(Node, false),
-    case ets:lookup(c_srv_info, Node) of
+    case ets:lookup(srv_info, Node) of
         [#srv_info{srv_list = SrvList, version = Version}] ->
-            ets:delete(c_srv_info, Node),
+            ets:delete(srv_info, Node),
+            [ets:delete(srv_id_ver, SrvId) || SrvId <- SrvList],
             case srv_lib:version() =:= Version of
                 true ->
-                    [ets:delete(c_srv_id, SrvId) || SrvId <- SrvList],
-                    [cluster_mgr:info(Node0, {srv_down, Node, SrvList, []}) || #srv_info{node = Node0} <- ets:tab2list(c_srv_info)]; %% 广播游戏服断开中央服连接信息给其他已连接的节点
+                    [ets:delete(srv_id, SrvId) || SrvId <- SrvList],
+                    [rpc:cast(Node0, cluster_mgr, info, [{srv_down, Node, true, SrvList}]) || #srv_info{node = Node0} <- ets:tab2list(srv_info)]; %% 广播游戏服断开中央服连接信息给其他已连接的节点
                 _ ->
-                    [ets:delete(c_srv_id_ver, SrvId) || SrvId <- SrvList],
-                    [cluster_mgr:info(Node0, {srv_down, Node, [], SrvList}) || #srv_info{node = Node0} <- ets:tab2list(c_srv_info)] %% 广播游戏服断开中央服连接信息给其他已连接的节点
+                    [rpc:cast(Node0, cluster_mgr, info, [{srv_down, Node, false, SrvList}]) || #srv_info{node = Node0} <- ets:tab2list(srv_info)] %% 广播游戏服断开中央服连接信息给其他已连接的节点
             end,
             ?info("游戏服节点[~w]断开连接", [Node]);
         _ ->
@@ -156,17 +154,17 @@ do_handle_info({nodedown, Node}, State) ->
 do_handle_info({srv_up, BackPid, Node, SrvList, Version}, State) ->
     erlang:monitor_node(Node, true),
     SrvInfo = #srv_info{node = Node, srv_list = SrvList, version = Version},
-    ets:insert(c_srv_info, SrvInfo),
+    ets:insert(srv_info, SrvInfo),
     CenterVersion = srv_lib:version(),
-    BackPid ! {center_info, CenterVersion, ets:tab2list(c_srv_id), ets:tab2list(c_srv_id_ver)}, %% 发送已连接到中央服的服务器信息，与中央服版本
+    BackPid ! {center_info, CenterVersion, ets:tab2list(srv_id), ets:tab2list(srv_id_ver)}, %% 发送已连接到中央服的服务器信息，与中央服版本
     SrvIds = [{SrvId, Node} || SrvId <- SrvList],
+    ets:insert(srv_id_ver, SrvIds),
     case CenterVersion =:= Version of
         true ->
-            ets:insert(c_srv_id, SrvIds),
-            [cluster_mgr:info(Node0, {srv_up, Node, SrvIds, []}) || #srv_info{node = Node0} <- ets:tab2list(c_srv_info), Node0 =/= Node]; %% 广播该游戏服连接到中央服的信息给其他已连接的节点
+            ets:insert(srv_id, SrvIds),
+            [rpc:cast(Node0, cluster_mgr, info, [{srv_up, Node, true, SrvIds}]) || #srv_info{node = Node0} <- ets:tab2list(srv_info), Node0 =/= Node]; %% 广播该游戏服连接到中央服的信息给其他已连接的节点
         _ ->
-            ets:insert(c_srv_id_ver, SrvIds),
-            [cluster_mgr:info(Node0, {srv_up, Node, [], SrvIds}) || #srv_info{node = Node0} <- ets:tab2list(c_srv_info), Node0 =/= Node] %% 广播该游戏服连接到中央服的信息给其他已连接的节点
+            [rpc:cast(Node0, cluster_mgr, info, [{srv_up, Node, false, SrvIds}]) || #srv_info{node = Node0} <- ets:tab2list(srv_info), Node0 =/= Node] %% 广播该游戏服连接到中央服的信息给其他已连接的节点
     end,
     ?info("游戏服节点[~w]连接", [Node]),
     {noreply, State};

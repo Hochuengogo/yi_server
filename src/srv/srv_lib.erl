@@ -21,6 +21,7 @@
     , center_node/0
     , code_path/0
     , server_path/0
+    , is_local/1
 ]).
 
 -include("common.hrl").
@@ -75,5 +76,10 @@ code_path() ->
 server_path() ->
     {ok, SrvPath} = file:get_cwd(),
     SrvPath.
+
+%% @doc 判断服务器ID是否为本服服务器ID
+-spec is_local(srv_id()) -> boolean().
+is_local(SrvId) ->
+    lists:member(SrvId, server_ids()).
 
 

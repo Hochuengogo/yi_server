@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([call/1, cast/1, info/1, info/2, apply/2, start_link/0]).
+-export([call/1, cast/1, info/1, apply/2, start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include("common.hrl").
@@ -26,8 +26,6 @@ call(Request) ->
 cast(Request) ->
     gen_server:cast(?MODULE, Request).
 
-info(Node, Info) ->
-    {?MODULE, Node} ! Info.
 info(Info) ->
     ?MODULE ! Info.
 
@@ -131,6 +129,7 @@ do_handle_info({nodedown, _Node}, State) ->
     ets:delete_all_objects(srv_id),
     ets:delete_all_objects(srv_id_ver),
     ?info("中央服节点断开连接"),
+    cluster_lib:disconnect_center_fire(srv_lib:version() =:= srv_config:get(center_version)),
     {noreply, State};
 
 %% 检测是否和中央服连接
@@ -140,7 +139,7 @@ do_handle_info(check_connect, State) ->
         pong ->
             case srv_config:get(is_link, false) of
                 false ->
-                    c_cluster_mgr:info(CenterNode, {srv_up, self(), node(), srv_lib:server_ids(), srv_lib:version()});
+                    rpc:cast(CenterNode, c_cluster_mgr, info, [{srv_up, self(), node(), srv_lib:server_ids(), srv_lib:version()}]);
                 _ ->
                     skip
             end;
@@ -166,20 +165,32 @@ do_handle_info({center_info, CenterVersion, SrvIds, SrvIdsVer}, State) ->
     ets:insert(srv_id_ver, SrvIdsVer),
     srv_config:set(center_version, CenterVersion),
     srv_config:set(is_link, true),
-    ?info("连接到中央服节点，中央服版本号：~ts，本服版本号：~ts", [CenterVersion, srv_lib:version()]),
+    Version = srv_lib:version(),
+    ?info("连接到中央服节点，中央服版本号：~ts，本服版本号：~ts", [CenterVersion, Version]),
+    cluster_lib:connect_center_fire(Version =:= CenterVersion),
     {noreply, State};
 
 %% 其他游戏服连接到中央服
-do_handle_info({srv_up, Node, SrvIds, SrvIdsVer}, State) ->
-    ?debug("其他游戏服节点[~w]连接到中央服节点，srv_ids：~w，srv_ids_ver:~w", [Node, SrvIds, SrvIdsVer]),
-    ets:insert(srv_id, SrvIds),
-    ets:insert(srv_id_ver, SrvIdsVer),
+do_handle_info({srv_up, Node, SameVersion, SrvIds}, State) ->
+    ?debug("其他游戏服节点[~w]连接到中央服节点，srv_ids：~w", [Node, SrvIds]),
+    ets:insert(srv_id_ver, SrvIds),
+    case SameVersion of
+        true ->
+            ets:insert(srv_id, SrvIds);
+        _ ->
+            skip
+    end,
     {noreply, State};
 
-do_handle_info({srv_down, Node, SrvIds, SrvIdsVer}, State) ->
-    ?debug("其他游戏服节点[~w]断开与中央服节点连接，srv_ids：~w，srv_ids_ver:~w", [Node, SrvIds, SrvIdsVer]),
-    [ets:delete(srv_id, SrvId) || SrvId <- SrvIds],
-    [ets:delete(srv_id_ver, SrvIdVer) || SrvIdVer <- SrvIdsVer],
+do_handle_info({srv_down, Node, SameVersion, SrvIds}, State) ->
+    ?debug("其他游戏服节点[~w]断开与中央服节点连接，srv_ids：~w", [Node, SrvIds]),
+    [ets:delete(srv_id_ver, SrvId) || SrvId <- SrvIds],
+    case SameVersion of
+        true ->
+            [ets:delete(srv_id, SrvId) || SrvId <- SrvIds];
+        _ ->
+            skip
+    end,
     {noreply, State};
 
 do_handle_info(_Info, State) ->
