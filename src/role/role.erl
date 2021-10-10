@@ -142,9 +142,9 @@ handle_info(Info, Role) ->
     end.
 
 terminate(Reason, Role) ->
-    ?info("[~w]开始关闭，原因：~w", [?MODULE, Reason]),
+    ?info("角色[~ts]~p进程开始关闭，原因：~w", [Role#role.name, Role#role.id, Reason]),
     stop(Reason, Role),
-    ?info("[~w]关闭完成", [?MODULE]),
+    ?info("角色[~ts]~p进程关闭完成", [Role#role.name, Role#role.id]),
     ok.
 
 %% 关闭进程执行操作

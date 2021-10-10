@@ -31,7 +31,7 @@ account_login(Gateway, Data) ->
                     put(account, Account),
                     put(role_ids, [{RId, SrvId} || {RId, SrvId, _, _, _, _} <- RoleInfo]),
                     set_data([channel, idfa, device_id, os_name, package_name, package_version], Data),
-                    NewGateway = Gateway#gateway{is_login = true},
+                    NewGateway = Gateway#gateway{is_login = true, account = Account},
                     {ok, NewGateway, RoleInfo};
                 {error, Reason} ->
                     ?error("获取服务器角色信息失败，原因：~w", [Reason]),

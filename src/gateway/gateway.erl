@@ -36,9 +36,9 @@ start() ->
     gen_server:start(?MODULE, [], []).
 
 init([]) ->
-    ?gate_debug("[~w]开始启动", [?MODULE]),
+%%    ?gate_debug("[~w]开始启动", [?MODULE]),
     process_flag(trap_exit, true),
-    ?gate_debug("[~w]启动完成", [?MODULE]),
+%%    ?gate_debug("[~w]启动完成", [?MODULE]),
     {ok, #gateway{pid = self()}}.
 
 handle_call(_Request, _From, State) ->
@@ -180,10 +180,10 @@ handle_info({proto_control, Flag}, Gateway) ->
 handle_info(_Info, Gateway) ->
     {noreply, Gateway}.
 
-terminate(Reason, #gateway{sock = CSock}) ->
-    ?gate_debug("[~w]开始关闭，原因：~w", [?MODULE, Reason]),
+terminate(Reason, #gateway{sock = CSock, account = Account, role_id = RoleId}) ->
+    ?gate_debug("网关进程开始关闭，账号：~ts，角色Id：~p，原因：~w", [Account, RoleId, Reason]),
     catch inet:close(CSock),
-    ?gate_debug("[~w]关闭完成", [?MODULE]),
+    ?gate_debug("网关进程关闭完成，账号：~ts，角色Id：~p", [Account, RoleId]),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
