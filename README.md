@@ -27,6 +27,6 @@ gen_mod // 生成代码模板
 ```
 配置
 -----
-setting.sh 项目配置文件
-server.sql 项目数据库定义文件
-server.config 服务器节点配置文件
+setting.sh 项目配置文件  
+server.sql 项目数据库定义文件  
+server.config 服务器节点配置文件  
