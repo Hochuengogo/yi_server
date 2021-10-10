@@ -11,9 +11,9 @@
 
 %% API
 -export([
-    register/2
-    , unregister/2
-    , unregister_event/2
+    add/2
+    , del/2
+    , del_event/2
     , async_fire/1
     , async_fire/2
     , fire/2
@@ -26,23 +26,23 @@
 
 %% @doc 注册触发器
 %% 注册触发器，返回新的角色结构，和{事件，触发器ID} | [{事件，触发器ID}]
--spec register(#role{}, #trigger{}) -> {#role{}, {term(), pos_integer()}}.
-register(Role = #role{s_trigger = STrigger}, Trigger) ->
-    {NewSTrigger, Key} = strigger:register(STrigger, Trigger),
+-spec add(#role{}, #trigger{}) -> {#role{}, {term(), pos_integer()}}.
+add(Role = #role{s_trigger = STrigger}, Trigger) ->
+    {NewSTrigger, Key} = strigger:add(STrigger, Trigger),
     {Role#role{s_trigger = NewSTrigger}, Key}.
 
 %% @doc 取消注册触发器
 %% 取消注册触发器，返回新的角色结构
--spec unregister(#role{}, {term(), pos_integer()}) -> #role{}.
-unregister(Role = #role{s_trigger = STrigger}, Key) ->
-    NewSTrigger = strigger:unregister(STrigger, Key),
+-spec del(#role{}, {term(), pos_integer()}) -> #role{}.
+del(Role = #role{s_trigger = STrigger}, Key) ->
+    NewSTrigger = strigger:del(STrigger, Key),
     Role#role{s_trigger = NewSTrigger}.
 
 %% @doc 取消注册事件
 %% 取消注册事件，返回新的角色结构
--spec unregister_event(#role{}, term()) -> #role{}.
-unregister_event(Role = #role{s_trigger = STrigger}, Event) ->
-    NewSTrigger = strigger:unregister_event(STrigger, Event),
+-spec del_event(#role{}, term()) -> #role{}.
+del_event(Role = #role{s_trigger = STrigger}, Event) ->
+    NewSTrigger = strigger:del_event(STrigger, Event),
     Role#role{s_trigger = NewSTrigger}.
 
 %% @doc 异步触发事件

@@ -105,6 +105,7 @@ handle_info({inet_async, _Sock, _Ref, {ok, Packet}}, Client) ->
 
 %% socket断开连接
 handle_info({inet_async, Sock, _Ref, {error, closed}}, Client = #gateway_client{sock = Sock}) ->
+    ?gate_debug("socket关闭, 原因:~w", [closed]),
     {stop, normal, Client};
 %% socket报错
 handle_info({inet_async, Sock, _Ref, {error, Reason}}, Client = #gateway_client{sock = Sock}) ->
@@ -142,22 +143,24 @@ handle_info({'EXIT', Sock, Reason}, Client = #gateway_client{sock = Sock}) ->
     {stop, normal, Client};
 
 %% 心跳
-handle_info(heartbeat, Client = #gateway_client{account = Account}) ->
-    ?gate_debug("账号：~ts执行心跳", [Account]),
+handle_info(heartbeat, Client = #gateway_client{account = _Account}) ->
+%%    ?gate_debug("账号：~ts执行心跳", [Account]),
     pack_send(10001, {}),
     {noreply, Client};
 
 %% 关闭
 handle_info({stop, Reason}, Client) ->
+    ?gate_debug("关闭原因：~w", [Reason]),
     {stop, Reason, Client};
 
 handle_info(_Info, Client) ->
     {noreply, Client}.
 
-terminate(Reason, #gateway_client{sock = Sock}) ->
-    ?info("[~w]开始关闭，原因：~w", [?MODULE, Reason]),
+terminate(Reason, #gateway_client{account = Account, sock = Sock}) ->
+    ProName = list_to_atom(lists:concat(["client_", binary_to_list(Account)])),
+    ?info("[~w]开始关闭，原因：~w", [ProName, Reason]),
     catch inet:close(Sock),
-    ?info("[~w]关闭完成", [?MODULE]),
+    ?info("[~w]关闭完成", [ProName]),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

@@ -43,7 +43,7 @@ init([]) ->
     T2 = #trigger{event = evt_test_1, callback = {?MODULE, evt_test_1_callback, [test]}},
     T3 = #trigger{event = evt_test_2, callback = {?MODULE, evt_test_2_callback, []}},
     T4 = #trigger{event = evt_test_3, callback = {?MODULE, evt_test_3_callback, []}},
-    {STrigger, _} = strigger:register(#s_trigger{}, [T1, T2, T3, T4]),
+    {STrigger, _} = strigger:add(#s_trigger{}, [T1, T2, T3, T4]),
     {ok, #t_trigger_state{s_trigger = STrigger}}.
 
 handle_call(_Request, _From, State = #t_trigger_state{}) ->

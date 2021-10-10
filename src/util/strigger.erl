@@ -12,9 +12,9 @@
 
 %% API
 -export([
-    register/2
-    , unregister/2
-    , unregister_event/2
+    add/2
+    , del/2
+    , del_event/2
     , fire/3
     , async_fire/1
     , async_fire/2
@@ -25,8 +25,8 @@
 
 %% @doc 注册触发器
 %% 注册触发器，返回新的总触发器结构，和{事件，触发器ID}
--spec register(#s_trigger{}, #trigger{}) -> {#s_trigger{}, {term(), pos_integer()}}.
-register(STrigger = #s_trigger{triggers = TriggerList, next_id = NextId}, AddTrigger = #trigger{event = Event, callback = {_, _, _}}) ->
+-spec add(#s_trigger{}, #trigger{}) -> {#s_trigger{}, {term(), pos_integer()}}.
+add(STrigger = #s_trigger{triggers = TriggerList, next_id = NextId}, AddTrigger = #trigger{event = Event, callback = {_, _, _}}) ->
     NewAddTrigger = AddTrigger#trigger{id = NextId},
     NewTriggerList =
         case lists:keyfind(Event, 1, TriggerList) of
@@ -42,18 +42,18 @@ register(STrigger = #s_trigger{triggers = TriggerList, next_id = NextId}, AddTri
 %% @doc 注册多个触发器
 %% 注册多个触发器，返回新的总触发器结构，和{事件，触发器ID}列表
 %%-spec add(#s_trigger{}, [#trigger{}]) -> {#s_trigger{}, [{term(), pos_integer()}]}.
-register(STrigger, Triggers) when is_list(Triggers) ->
+add(STrigger, Triggers) when is_list(Triggers) ->
     add_more(STrigger, Triggers, []).
 add_more(STrigger, [], Acc) ->
     {STrigger, lists:reverse(Acc)};
 add_more(STrigger, [AddTrigger | AddTriggers], Acc) ->
-    {NewSTrigger, Key} = ?MODULE:register(STrigger, AddTrigger),
+    {NewSTrigger, Key} = add(STrigger, AddTrigger),
     add_more(NewSTrigger, AddTriggers, [Key | Acc]).
 
 %% @doc 取消注册触发器
 %% 取消注册触发器，返回新的总触发器结构
--spec unregister(#s_trigger{}, {term(), pos_integer()}) -> #s_trigger{}.
-unregister(STrigger = #s_trigger{triggers = TriggerList}, {Event, Id}) ->
+-spec del(#s_trigger{}, {term(), pos_integer()}) -> #s_trigger{}.
+del(STrigger = #s_trigger{triggers = TriggerList}, {Event, Id}) ->
     case lists:keyfind(Event, 1, TriggerList) of
         {_, Triggers} ->
             NewTriggers = lists:keydelete(Id, #trigger.id, Triggers),
@@ -72,27 +72,27 @@ unregister(STrigger = #s_trigger{triggers = TriggerList}, {Event, Id}) ->
 %% @doc 取消注册多个触发器
 %% 取消注册多个触发器，返回新的总触发器结构
 %%-spec unregister(#s_trigger{}, [{term(), pos_integer()}]) -> #s_trigger{}.
-unregister(STrigger, []) ->
+del(STrigger, []) ->
     STrigger;
-unregister(STrigger, [Key | KeyList]) ->
-    NewSTrigger = ?MODULE:unregister(STrigger, Key),
-    unregister(NewSTrigger, KeyList).
+del(STrigger, [Key | KeyList]) ->
+    NewSTrigger = del(STrigger, Key),
+    del(NewSTrigger, KeyList).
 
 %% @doc 取消注册事件
 %% 取消注册事件，返回新的总触发器结构
--spec unregister_event(#s_trigger{}, term()) -> #s_trigger{}.
-unregister_event(STrigger = #s_trigger{triggers = TriggerList}, Event) ->
+-spec del_event(#s_trigger{}, term()) -> #s_trigger{}.
+del_event(STrigger = #s_trigger{triggers = TriggerList}, Event) ->
     NewTriggerList = lists:keydelete(Event, 1, TriggerList),
     STrigger#s_trigger{triggers = NewTriggerList};
 
 %% @doc 取消注册多个事件
 %% 取消注册多个事件，返回新的总触发器结构
 %%-spec unregister_event(#s_trigger{}, [term()]) -> #s_trigger{}.
-unregister_event(STrigger, []) ->
+del_event(STrigger, []) ->
     STrigger;
-unregister_event(STrigger, [Event | Events]) ->
-    NewSTrigger = unregister_event(STrigger, Event),
-    unregister_event(NewSTrigger, Events).
+del_event(STrigger, [Event | Events]) ->
+    NewSTrigger = del_event(STrigger, Event),
+    del_event(NewSTrigger, Events).
 
 %% @doc 异步触发事件
 %% 在对应的进程需要处理 {fire_trigger, EventTuple} 消息，执行方法使用 fire/3 即可
@@ -172,15 +172,15 @@ do_fire(STrigger, State, EventTuple, Event) ->
                     do_fire(NewSTrigger, NewState, EventTuple, Event);
                 {remove, KeyList} when is_list(KeyList) -> %% 删除触发器
                     do_fire_unregister_trigger(KeyList),  %% 如果在后面则不让删除的触发器触发
-                    NewSTrigger = unregister(STrigger, KeyList),
+                    NewSTrigger = del(STrigger, KeyList),
                     do_fire(NewSTrigger, State, EventTuple, Event);
                 {remove, KeyList, NewSTrigger0 = #s_trigger{}} when is_list(KeyList) -> %% 删除触发器
                     do_fire_unregister_trigger(KeyList),  %% 如果在后面则不让删除的触发器触发
-                    NewSTrigger = unregister(NewSTrigger0, KeyList),
+                    NewSTrigger = del(NewSTrigger0, KeyList),
                     do_fire(NewSTrigger, State, EventTuple, Event);
                 {remove, KeyList, NewSTrigger0 = #s_trigger{}, NewState} when is_list(KeyList) -> %% 删除触发器
                     do_fire_unregister_trigger(KeyList),  %% 如果在后面则不让删除的触发器触发
-                    NewSTrigger = unregister(NewSTrigger0, KeyList),
+                    NewSTrigger = del(NewSTrigger0, KeyList),
                     do_fire(NewSTrigger, NewState, EventTuple, Event);
                 _Err ->
                     ?error("触发器执行回调错误，触发器：~w，状态：~w，事件：~w，错误：~w", [Trigger, State, EventTuple, _Err]),

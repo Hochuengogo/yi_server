@@ -194,14 +194,14 @@ save_role_base(#role{id = {RId, SrvId}, account = Account, name = Name, career =
     , package_name = PackageName, reg_package_version = RegPackageVersion, package_version = PackageVersion
     , platform = Platform
 }) ->
-    Sql = <<"REPLACE INTO role_base (rid,srv_id,account,name,career,type,sex,face_id,lev,vip_lev,power,max_power,login_time,logout_time
-            ,login_ip,is_online,banned_time,data_lock_time,identity,reg_channel,channel,reg_time,reg_ip,reg_idfa,idfa
-            ,reg_device_id,device_id,reg_os_name,os_name,reg_package_name,package_name,reg_package_version,package_version
-            ,platform) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);">>,
-    Args = [RId, SrvId, Account, Name, Career, Type, Sex, FaceId, Lev, VipLev, Power, MaxPower, LoginTime, LogoutTime
+    Sql = <<"UPDATE role_base SET account=?,name=?,career=?,type=?,sex=?,face_id=?,lev=?,vip_lev=?,power=?,max_power=?,login_time=?,logout_time=?
+            ,login_ip=?,is_online=?,banned_time=?,data_lock_time=?,identity=?,reg_channel=?,channel=?,reg_time=?,reg_ip=?,reg_idfa=?,idfa=?
+            ,reg_device_id=?,device_id=?,reg_os_name=?,os_name=?,reg_package_name=?,package_name=?,reg_package_version=?,package_version=?
+            ,platform=? WHERE rid=? AND srv_id=?;">>,
+    Args = [Account, Name, Career, Type, Sex, FaceId, Lev, VipLev, Power, MaxPower, LoginTime, LogoutTime
         , LoginIp, IsOnline, BannedTime, DataLockTime, Identity, RegChannel, Channel, RegTime, RegIp, RegIdfa, Idfa
         , RegDeviceId, DeviceId, RegOsName, OsName, RegPackageName, PackageName, RegPackageVersion, PackageVersion,
-        Platform],
+        Platform, RId, SrvId],
     case db:query(Sql, Args, 5000) of
         ok ->
             ok;

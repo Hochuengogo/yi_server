@@ -19,6 +19,7 @@
 -include("common.hrl").
 -include("logs.hrl").
 -include("ver.hrl").
+-include("role.hrl").
 
 %% @doc 版本号位置
 -spec ver_index() -> pos_integer().
@@ -30,8 +31,11 @@ ver_index() ->
 %% 版本转换处理到中间版本，返回{continue, #ver_parser{}}
 %% 版本转换处理失败，返回false
 -spec ver(#ver_parser{}) -> {ok, #ver_parser{}} | {continue, #ver_parser{}} | false.
-ver(VerParser) ->
-    {ok, VerParser}.
+ver(VerParser = #ver_parser{ver = ?role_ver}) ->
+    {ok, VerParser};
+ver(_VerParser = #ver_parser{ver = Ver}) ->
+    ?error("role结构版本转换错误，当前版本号：~w", [Ver]),
+    false.
 
 %% @doc 子字段版本转换
 -spec ver_list() -> [{pos_integer(), module()}].

@@ -37,8 +37,7 @@ do(Data, Mod) ->
     do2(#ver_parser{data = Data, ver = Ver, mod = Mod}).
 do2(VerParser = #ver_parser{mod = Mod}) ->
     case Mod:ver(VerParser) of
-        {ok, NewVerParser0 = #ver_parser{}} -> %% 转换到最终版本成功
-            #ver_parser{data = NewData} = acc_ver(NewVerParser0),
+        {ok, #ver_parser{data = NewData}} -> %% 转换到最终版本成功
             VerList = Mod:ver_list(),
             do_sub(VerList, NewData);
         {continue, NewVerParser0 = #ver_parser{data = NewData0, opts = Opts}} -> %% 转换中

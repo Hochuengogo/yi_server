@@ -197,7 +197,6 @@ do_handle_call({switch, MGateway = #m_gateway{pid = GatePid}, Args}, _From, Role
     NRole = NRole0#role{m_gateway = MGateway, is_sync = ?true},
     link(GatePid),
     put('@gate_pid', GatePid),
-%%    put('@login', true),
     util:unset_timer(check_login_timer),
     {reply, true, NRole};
 
@@ -222,24 +221,14 @@ do_handle_info({apply, {M, F, A}}, Role) ->
     end;
 
 %% 异步触发事件
-do_handle_info({fire_trigger, EventTuple}, Role = #role{id = RoleId, name = Name}) ->
-    case catch role_trigger:fire(Role, EventTuple) of
-        {NRole = #role{}} ->
-            {noreply, NRole};
-        Err ->
-            ?error("角色[~ts]~p异步触发事件失败，事件：~w，错误：~w", [Name, RoleId, EventTuple, Err]),
-            {noreply, Role}
-    end;
+do_handle_info({fire_trigger, EventTuple}, Role) ->
+    NRole = role_trigger:fire(Role, EventTuple),
+    {noreply, NRole};
 
 %% 定时器超时
-do_handle_info({timeout, Ref, timer_tick}, Role = #role{id = RoleId, name = Name}) ->
-    case catch role_timer:tick(Role, Ref) of
-        {NRole = #role{}} ->
-            {noreply, NRole};
-        Err ->
-            ?error("角色[~ts]~p执行定时器事件失败，错误：~w", [Name, RoleId, Err]),
-            {noreply, Role}
-    end;
+do_handle_info({timeout, Ref, timer_tick}, Role) ->
+    NRole = role_timer:tick(Role, Ref),
+    {noreply, NRole};
 
 %% 初始化
 do_handle_info(init, Role = #role{m_gateway = #m_gateway{ip = Ip}}) ->
@@ -249,38 +238,53 @@ do_handle_info(init, Role = #role{m_gateway = #m_gateway{ip = Ip}}) ->
     case role_login:do(NRole0) of
         {ok, NRole1 = #role{}} ->
             NRole = NRole1#role{logout_time = 0, is_sync = ?true},
-%%            put('@login', true), %% 已登录标识
             role_query:set_role_query(by_name, NRole),
-            self() ! loop,
+            put('@loop_idx', 1),
+            erlang:send_after(util:rand(20000, 30000), self(), loop),
             {noreply, NRole};
         {error, _Err} ->
             {stop, normal, Role}
     end;
 
 %% 循环检测
-do_handle_info(loop, Role = #role{is_sync = IsSync, m_gateway = #m_gateway{pid = GatePid, sock = Sock}}) ->
-    case erlang:process_info(GatePid, message_queue_len) of
-        MsgLen when is_integer(MsgLen) andalso MsgLen >= 5000 -> %% 检测网关进程是否拥堵，拥堵则杀掉网关进程
-            erlang:exit(GatePid, kill),
-            catch inet:close(Sock),
-            case util:have_timer(check_login_timer) of
-                false ->
-                    util:set_ms_timer(check_login_timer, ?min_ms(3), self(), check_login);
+do_handle_info(loop, Role = #role{id = RoleId, name = Name, is_sync = IsSync, m_gateway = #m_gateway{pid = GatePid, sock = Sock}}) ->
+    LoopIdx = get('@loop_idx'),
+    %% 1分钟检测一次
+    case LoopIdx rem 2 =:= 0 of
+        true ->
+            case erlang:process_info(GatePid, message_queue_len) of
+                MsgLen when is_integer(MsgLen) andalso MsgLen >= 5000 -> %% 检测网关进程是否拥堵，拥堵则杀掉网关进程
+                    erlang:exit(GatePid, kill),
+                    catch inet:close(Sock),
+                    ?error("角色[~ts]~p网关进程消息队列拥堵，主动杀死网关进程，消息数量：~w", [Name, RoleId, MsgLen]),
+                    case util:have_timer(check_login_timer) of
+                        false ->
+                            util:set_ms_timer(check_login_timer, ?min_ms(3), self(), check_login);
+                        _ ->
+                            skip
+                    end;
                 _ ->
                     skip
             end;
         _ ->
             skip
     end,
+    %% 1分半钟检测一次
     NRole =
-        case IsSync of
-            ?true ->
-                self() ! save,
-                Role#role{is_sync = ?false};
+        case LoopIdx rem 3 =:= 0 of
+            true ->
+                case IsSync of
+                    ?true ->
+                        self() ! save,
+                        Role#role{is_sync = ?false};
+                    _ ->
+                        Role
+                end;
             _ ->
                 Role
         end,
-    erlang:send_after(util:rand(5000, 6000), self(), loop),
+    put('@loop_idx', LoopIdx + 1),
+    erlang:send_after(util:rand(20000, 30000), self(), loop),
     {noreply, NRole};
 
 %% 保存角色数据
@@ -298,7 +302,7 @@ do_handle_info(save, Role = #role{id = RoleId, name = Name}) ->
                     role_data:info({save, RoleId}),
                     ?debug("角色[~ts]~p保存角色数据到数据库失败，保存到dets", [Name, RoleId])
             end,
-            put('@save_db_time', Now + ?min_s);
+            put('@save_db_time', Now + ?min_s(2));
         _ ->
             role_data:save_cache(Role),
             ?debug("角色[~ts]~p保存角色数据到dets成功", [Name, RoleId])
@@ -307,7 +311,6 @@ do_handle_info(save, Role = #role{id = RoleId, name = Name}) ->
 
 %% 网关进程挂了
 do_handle_info({'EXIT', GatePid, _Err}, Role = #role{id = RoleId, name = Name, m_gateway = #m_gateway{pid = GatePid}}) ->
-%%    put('@login', false), %% 已登录标识
     ?gate_debug("角色[~ts]~p网关进程挂了，原因：~w", [Name, RoleId, _Err]),
     util:set_ms_timer(check_login_timer, ?min_ms(3), self(), check_login),
     {noreply, Role};
