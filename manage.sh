@@ -319,6 +319,10 @@ function start() {
             echo -e "$(color green "服务器")$(color sky_blue ${node_name})$(color green "已启动")"
             return 0
         fi
+        log_line=$(cat ${server_path}/screenlog.0 | wc -l)
+        if [ ${log_line} -gt 1000000 ]; then
+            mv ${server_path}/screenlog.0 ${server_path}/screenlog.1
+        fi
         cmd="ulimit -S -n 10240 && erl -pa ${CFG[root]}/ebin -name ${node_name} -setcookie ${CFG[cookie]} -hidden -smp enable +P 1024000 +e 102400 +Q 65536 -kernel inet_dist_listen_min ${min_port} inet_dist_listen_max ${max_port} -s manage start"
         cd ${server_path} && screen -L -dmS ${node_name} && screen -x -S ${node_name} -p 0 -X stuff "${cmd}\n"
         if [[ $? -eq 0 ]]; then
@@ -363,13 +367,17 @@ function stop() {
     server_path=${CFG[zone_path]}/${server_name}
     node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
     exec_node_name=exec_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]}
-    erl -name ${exec_node_name} -setcookie ${CFG[cookie]} -noshell -eval "rpc:call('${node_name}',manage,stop,[])." -s init stop
-    if [[ $? -ne 0 ]]; then
-        echo -e "$(color red "关闭服务器${node_name}失败")"
-        return 1
+    if has_screen ${node_name}; then
+        ret=$(erl -name ${exec_node_name} -setcookie ${CFG[cookie]} -noshell -eval "Ret=rpc:call('${node_name}',manage,stop,[]),io:format(\"~w~n\",[Ret])." -s init stop)
+        if [[ ! $ret == "ok" ]]; then
+            echo -e "$(color red "关闭服务器${node_name}失败，返回值：${ret}")"
+            return 1
+        fi
+        ps aux | grep ${node_name} | grep -v grep | awk '{print $2}' | xargs kill
+        echo -e "$(color green "关闭服务器")$(color sky_blue ${node_name})$(color green "成功")"
+        return 0
     fi
-    ps aux | grep ${node_name} | grep -v grep | awk '{print $2}' | xargs kill
-    echo -e "$(color green "关闭服务器")$(color sky_blue ${node_name})$(color green "成功")"
+    echo -e "$(color green "服务器")$(color sky_blue ${node_name})$(color green "已关闭")"
     return 0
 }
 
@@ -382,8 +390,8 @@ function update() {
     server_path=${CFG[zone_path]}/${server_name}
     node_name=${CFG[game_name]}_${CFG[platform]}_${srv_type}_${srv_id}@${CFG[gateway_host]}
     exec_node_name=exec_${CFG[game_name]}_${CFG[platform]}@${CFG[gateway_host]}
-    erl -name ${exec_node_name} -setcookie ${CFG[cookie]} -noshell -eval "rpc:call('${node_name}',srv_code,hot_update,[])." -s init stop
-    if [[ $? -eq 0 ]]; then
+    ret=$(erl -name ${exec_node_name} -setcookie ${CFG[cookie]} -noshell -eval "Ret=rpc:call('${node_name}',srv_code,hot_update,[]),io:format(\"~w~n\",[Ret])." -s init stop)
+    if [[ $ret == "ok" ]]; then
         echo -e "$(color green "热更服务器")$(color sky_blue ${node_name})$(color green "成功")"
         return 0
     fi
