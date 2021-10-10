@@ -28,7 +28,7 @@
 
 %% @doc 异步执行方法
 -spec cast(center | all | {srv, srv_id()} | {node, node()}, module(), atom(), list()) -> true | {error, term()}.
-%% 中央服节点执行，并且要与中央服节点版本一致
+%% 中央服节点执行
 cast(center, M, F, A) ->
     case srv_lib:server_type() of
         center ->
@@ -51,7 +51,7 @@ cast(all, M, F, A) ->
         zone ->
             {error, not_center}
     end;
-%% 指定游戏服节点执行，本游戏服节点和目标游戏服节点与中央服节点版本一致
+%% 指定游戏服节点执行
 cast({srv, SrvId}, M, F, A) ->
     case srv_lib:is_local(SrvId) of
         true ->
@@ -145,8 +145,8 @@ do_cast_msg(Node, Name, CastMod, CastFunc, Msg) ->
     true.
 
 %% @doc 同步执行方法
--spec call(center | {srv, srv_id()} | {node, node()}, module(), atom(), list()) -> term() | {error, term()} | {badrpc, term()}.
-%% 中央服节点执行，并且要与中央服节点版本一致
+-spec call(center | {srv, srv_id()} | {node, node()}, module(), atom(), list()) -> term() | {error, term()}.
+%% 中央服节点执行
 call(center, M, F, A) ->
     case srv_lib:server_type() of
         center ->
@@ -232,7 +232,12 @@ call(Flag, _M, _F, _A) ->
 do_call(local, M, F, A) ->
     util:apply(M, F, A);
 do_call(Node, M, F, A) ->
-    rpc:call(Node, M, F, A, ?cluster_call_timeout).
+    case rpc:call(Node, M, F, A, ?cluster_call_timeout) of
+        {badrpc, Err} ->
+            {error, {badrpc, Err}};
+        Ret ->
+            Ret
+    end.
 
 do_call_msg(local, Name, CallMod, CallFunc, Msg) ->
     CallMod:CallFunc(Name, Msg);
