@@ -97,7 +97,8 @@ do_handle_info(accept, Acceptor = #gateway_acceptor{lsock = LSock}) ->
 do_handle_info({inet_async, LSock, Ref, {ok, CSock}}, Acceptor = #gateway_acceptor{lsock = LSock, ref = Ref}) ->
     {ok, Mod} = inet_db:lookup_socket(LSock),
     inet_db:register_socket(CSock, Mod),
-    atk(CSock),
+    Pid = self(),
+    spawn(fun() -> atk(Pid, CSock) end),
     self() ! accept,
     {noreply, Acceptor};
 %% 异常接收到一个socket
@@ -120,14 +121,19 @@ do_handle_info({inet_async, LSock, _Ref, {error, Reason}}, Acceptor = #gateway_a
     ?error("网络异步处理错误, 原因:~w", [Reason]),
     {stop, Reason, Acceptor};
 
+%% 已经握手的socket连接
+do_handle_info({atk, CSock}, State) ->
+    start_gateway(CSock),
+    {noreply, State};
+
 do_handle_info(_Info, State) ->
     {noreply, State}.
 
 %% 握手
-atk(CSock) ->
-    case gen_tcp:recv(CSock, 0, 1000) of
+atk(BackPid, CSock) ->
+    case gen_tcp:recv(CSock, byte_size(?game_name), 3000) of
         {ok, ?game_name} ->
-            start_gateway(CSock);
+            BackPid ! {atk, CSock};
         _ ->
             catch inet:close(CSock)
     end.
